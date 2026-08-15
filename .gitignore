@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+secrets.py
+node_modules/
+.DS_Store
+*.bak
+*.log
+output/
+tmp/
+dist/

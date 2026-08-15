@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070914">
+<title>XEMO</title>
+<meta name="description" content="XEMO's local-first creature, brain and body controller">
+<link rel="icon" href="/xemo/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/xemo/manifest.webmanifest">
+<link rel="stylesheet" href="/xemo/css/app.css?v=18">
+</head>
+<body class="face-home">
+<main class="app">
+  <section class="view creature active" data-view="creature">
+    <div class="stage">
+      <div class="stars"></div><div class="aura"></div>
+      <button id="debugBtn" class="corner-control debug-control" aria-expanded="false" aria-controls="faceDebug" title="show debug details">⌁</button>
+      <button id="fullscreenBtn" class="corner-control fullscreen-control" aria-label="Enter fullscreen" title="fullscreen">⛶</button>
+      <div id="birthHint" aria-live="polite"></div>
+      <div id="dreamScene" aria-live="polite"><div class="dream-sky-stars" aria-hidden="true"><i class="s1">✦</i><i class="s2">·</i><i class="s3">✧</i><i class="s4">·</i><i class="s5">✦</i><i class="s6">·</i><i class="s7">✧</i><i class="s8">·</i><i class="s9">✦</i><i class="s10">·</i><i class="s11">✧</i><i class="s12">·</i></div><div class="dream-moon" aria-hidden="true"></div><div class="dream-hills back"></div><div class="dream-hills front"></div><div id="dreamSceneText">gathering the little things worth keeping…</div></div>
+      <aside id="faceDebug" class="face-debug" aria-hidden="true"><div class="debug-head"><b>DEBUG</b><button id="debugClose" aria-label="Close debug">×</button></div><div id="faceDebugLog" class="debug-lines"></div></aside>
+      <div id="bigFace" class="face curious" role="button" tabindex="0" aria-label="XEMO's face. Tap to wake or pet XEMO."><i class="eye"></i><i class="eye"></i><i class="mouth"></i><span class="emotion-marks" aria-hidden="true"><b></b><b></b><b></b></span></div>
+      <div id="faceFx" class="face-fx" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div id="heard" class="heard"></div><div id="caption" class="caption">tap wake when you're ready</div>
+      <div id="typebar" class="typebar"><input id="chatInput" placeholder="say something to XEMO"><button id="chatSend">send</button></div>
+      <div class="quick">
+        <button id="dreamBtn">☾ dream</button>
+        <button id="listenBtn">🎧 listen</button><button id="seeBtn">👁 see</button>
+        <button id="typeBtn">⌨ type</button><button id="muteBtn">🔊 sound</button><button id="brainMenuBtn">🧠 brain</button>
+        <button id="pauseBtn" class="panic">⏸ pause</button>
+      </div>
+      <button id="quickToggle" class="quick-toggle" aria-expanded="true" aria-label="Close face menu" title="close menu">×</button>
+    </div>
+  </section>
+
+  <section class="view" data-view="connect"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">BODY LINK</div></div><div id="status" class="status"><i class="dot"></i><span>disconnected</span></div></div>
+    <div class="page"><h1 class="title">connect</h1><p class="lede">one relay link owns the body. the creature and manual controls share it safely.</p>
+      <div class="section stack"><label>pairing code<input id="code" class="field" value=""></label><div class="row"><button id="connectBtn" class="primary">connect XEMO</button><button id="disconnectBtn" class="secondary">disconnect</button></div><p class="hint">the pairing code is saved only in this browser.</p></div>
+      <div class="section"><h2>live status</h2><div class="row"><span id="relayPill" class="pill">relay offline</span><span id="bodyPill" class="pill">body asleep</span><span id="brainPill" class="pill">brain unchecked</span></div></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="body"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">BODY CONTROL</div></div><button class="danger panicAll">STOP</button></div>
+    <div class="page"><h1 class="title">controls</h1><p class="lede">manual body tuning and hardware tests. press and hold a direction; release to stop.</p>
+      <div class="section"><div class="power"><span>power</span><input id="power" type="range" min=".25" max="1" step=".05" value=".65"><output id="powerOut">65%</output></div>
+        <div class="pad"><button data-wl=".35" data-wr="1">↖</button><button data-wl="1" data-wr="1">↑</button><button data-wl="1" data-wr=".35">↗</button><button data-wl="-.7" data-wr=".7">←</button><button class="stop panicAll">STOP</button><button data-wl=".7" data-wr="-.7">→</button><button data-wl="-.35" data-wr="-1">↙</button><button data-wl="-1" data-wr="-1">↓</button><button data-wl="-1" data-wr="-.35">↘</button></div><p id="command" class="hint" style="text-align:center">waiting for a command</p>
+      </div>
+      <div class="section"><h2>left arm · GPIO12</h2><input id="left" type="range" min="0" max="180" value="90"><div class="switch"><span>reverse direction</span><input id="leftReverse" type="checkbox"></div><div class="row"><button id="centerArm" class="secondary">center</button><button id="relaxArm" class="secondary">relax</button><button id="testArm" class="secondary">test arm</button></div></div>
+      <div class="section"><div class="bodyline"><div><h2>right arm · GPIO13</h2><span class="hint">not installed yet</span></div><span class="pill">disabled</span></div></div>
+      <div class="section"><div class="bodyline"><div><h2>proximity orientation</h2><span class="hint">HC-SR04 · short-range clearance only · not sight</span></div><strong id="rangeResult" class="reading">—</strong></div><button id="scanBtn" class="primary">check clearance</button></div>
+      <div class="section"><div class="bodyline"><div><h2>360° LiDAR</h2><span class="hint">optional LD06/LD19 point cloud · host-side map preview</span></div><span id="lidarStatus" class="pill">not fitted</span></div><canvas id="lidarMap" width="300" height="300" aria-label="Live LiDAR polar scan"></canvas><canvas id="lidarWorldMap" width="300" height="220" aria-label="Estimated local LiDAR map"></canvas><button id="lidarScanBtn" class="secondary" style="width:100%;margin-top:10px">request scan</button><button id="lidarResetBtn" class="secondary" style="width:100%;margin-top:8px">reset estimated map</button><button id="lidarExportBtn" class="secondary" style="width:100%;margin-top:8px">download map JSON</button><p id="lidarMapNote" class="hint">map uses wheel-command dead reckoning; without encoders it is an approximate sketch.</p></div>
+      <div class="section"><h2>wheel tests</h2><div class="row"><button class="secondary" data-test-left="1">left wheel</button><button class="secondary" data-test-right="1">right wheel</button><button class="danger panicAll">stop both</button></div></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="soul"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">SOUL + MEMORY</div></div><span id="dreamStamp" class="pill">never dreamed</span></div>
+    <div class="page"><h1 class="title">personality</h1><p class="lede">these instructions and memories stay in this browser. dreaming asks the local brain to consolidate them.</p>
+      <div class="section"><h2>who XEMO is</h2><textarea id="personality" class="fieldarea"></textarea><p class="hint">saved automatically as you type</p></div>
+      <div class="section"><h2>standing instructions</h2><textarea id="instructions" class="fieldarea" placeholder="one instruction per line"></textarea></div>
+      <div class="section"><h2>how XEMO plays</h2><textarea id="playMemory" class="fieldarea" placeholder="editable goals, games, and body-learning rules"></textarea><p class="hint">editable character memory: examples guide him, but do not limit him</p></div>
+      <div class="section"><h2>what XEMO truly keeps</h2><div id="memory" class="memory"></div><p class="hint">The self-summary is dream-written; the lists below are the durable facts XEMO can actually recall. One-off camera captions and actions stay out.</p><div class="row" style="margin-top:12px"><button id="dreamHere" class="primary">dream now</button><button id="clearMemory" class="secondary">clear memory</button></div></div>
+      <div class="section"><h2>recent moments</h2><p class="hint">A short session log, not long-term memory. It fades and is never used as a durable fact unless explicitly promoted.</p><div id="moments" class="log"></div></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="senses"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">PHONE SENSES</div></div><span id="senseState" class="pill">quiet</span></div>
+    <div class="page"><h1 class="title">senses</h1><p class="lede">permissions are requested only when you switch a sense on.</p>
+      <div class="section"><div class="switch"><div><h2>eyes · camera</h2><span class="hint">camera off means XEMO is figuratively unable to see</span></div><input id="cameraToggle" type="checkbox"></div><video id="camera" class="camera" muted playsinline autoplay></video><div class="bodyline"><span>visual estimate</span><strong id="lightValue">—</strong></div><p id="perceptionStatus" class="hint">local object sense waits for camera</p><p id="visionStatus" class="hint">semantic vision waiting for a VL model</p></div>
+      <div class="section"><div class="switch"><div><h2>ears · microphone</h2><span class="hint">microphone off means XEMO cannot hear the room</span></div><input id="micToggle" type="checkbox"></div><div class="meter"><i id="soundMeter"></i></div><div class="bodyline"><span>sound level</span><strong id="soundValue">0%</strong></div></div>
+      <div class="section"><div class="switch"><div><h2>motion + orientation</h2><span class="hint">phone tilt and movement</span></div><input id="motionToggle" type="checkbox"></div><div id="motionReadout" class="memory">motion is off</div></div>
+      <div class="section"><h2>screen touch</h2><div id="touchReadout" class="memory">touch the creature face to let XEMO feel it</div></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="brain"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">BRAIN SETTINGS</div></div><span id="brainState" class="pill">offline</span></div>
+    <div class="page"><h1 class="title">brain</h1><p class="lede">local Qwen chooses one safe, validated action at a time. body limits remain outside the model.</p>
+      <div class="section"><div class="bodyline"><div><h2>living systems</h2><span class="hint">what is genuinely active right now</span></div><span class="pill on">embodied · v13</span></div><div class="row"><span id="lifeBrain" class="pill">brain</span><span id="lifeAutonomy" class="pill">autonomy</span><span id="lifeBody" class="pill">body</span><span id="lifeEyes" class="pill">eyes</span><span id="lifeEars" class="pill">ears</span><span id="lifeVoice" class="pill">voice</span></div><p id="lifeDetail" class="hint">checking XEMO…</p></div>
+      <div class="section"><h2>persistent embodied goal</h2><div id="goalStatus" class="memory">no active goal</div><label style="display:block;margin-top:12px">new goal<input id="goalInput" class="field" placeholder="explore the room · find the chair · follow me"></label><div class="row" style="margin-top:9px"><button id="startGoal" class="primary">start goal</button><button id="stopGoal" class="secondary">stop goal</button></div><p id="bodyLearning" class="hint">body learning waits for verified actions</p></div>
+      <div class="section stack"><label>XEMO brain bridge<input id="endpoint" class="field" value="/api"></label><label>model<select id="model" class="field"><option value="qwen/qwen3-vl-8b">Qwen3-VL 8B · smarter</option><option value="qwen/qwen3-vl-4b">Qwen3-VL 4B · faster</option></select></label><label>performance<select id="performance" class="field"><option value="auto">normal response path</option><option value="balanced">balanced context</option><option value="lean">lean · low-power PC</option></select></label><label>speech recognition<select id="whisperModel" class="field"><option value="base">Whisper Base · faster</option><option value="small">Whisper Small · clearer</option></select></label><div class="row"><button id="testBrain" class="primary">test brain</button><button id="brainEnabled" class="secondary">brain: on</button></div><p class="hint">The selected model is used for every thought. Lean sends 320px frames and shorter context. Whisper Small understands better but is slower on the Ryzen 2600 and may download on first use.</p></div>
+      <div class="section"><h2>behavior</h2><label>where XEMO is placed<select id="surface" class="field"><option value="unknown">unknown · wheels stay put</option><option value="floor">floor · safe to roam</option><option value="elevated">desk / table · wheels blocked</option><option value="soft">bed / sofa · no roaming</option></select></label><div class="switch"><span>allow autonomous movement</span><input id="autoMove" type="checkbox"></div><div class="switch"><span>speak responses</span><input id="speakToggle" type="checkbox" checked></div><div class="switch"><span>include phone sensor summary</span><input id="sensorPrompt" type="checkbox" checked></div><p class="hint">Choose floor to permit wandering. Movement also requires the ESP32 online, XEMO resumed, and this tab visible.</p></div>
+      <div class="section"><h2>voice</h2><label>voice<select id="voiceEngine" class="field"><option value="browser">phone / browser voice</option><option value="kokoro">XEMO story voice · Kokoro B-Fable (male fantasy)</option><option value="kokoro-es-male">XEMO español · Kokoro Alex (male)</option><option value="kokoro-es">XEMO español · Kokoro Dora</option></select></label><label style="display:block;margin-top:14px">pitch · <output id="pitchOut">1.00×</output><input id="pitch" type="range" min=".7" max="1.7" step=".02" value="1"></label><label style="display:block;margin-top:14px">speed · <output id="speedOut">1.00×</output><input id="speed" type="range" min=".5" max="2" step=".02" value="1"></label><p class="hint">Kokoro B-Fable is XEMO’s default male fantasy voice. Pitch and speed affect only the phone/browser voice.</p></div>
+      <div class="section"><h2>phone permissions</h2><p id="permissionStatus" class="hint">checking this address…</p><div class="row"><button id="permitMic" class="secondary">allow microphone</button><button id="permitCam" class="secondary">allow camera</button><button id="permitMotion" class="secondary">allow motion</button></div><p class="hint">permissions are requested only when you press one of these buttons. phones require HTTPS; localhost works only on the computer running XEMO.</p></div>
+      <div class="section"><h2>backup</h2><div class="row"><button id="backupBtn" class="secondary">download everything</button><button id="restoreBtn" class="secondary">restore backup</button><button id="resetAllBtn" class="danger">reset XEMO</button><input id="restoreFile" type="file" accept="application/json,.json" hidden></div><p class="hint">backs up this browser’s settings, personality, instructions, memories, and recent moments in one JSON file. Reset deletes XEMO’s local state only; export a backup first if you may want it back.</p></div>
+      <div class="section"><h2>live trace</h2><div class="row"><span id="diagSummary" class="hint">no brain requests yet</span><button id="diagExport" class="secondary">export last trace</button></div><div id="brainLog" class="log"></div></div>
+    </div>
+  </section>
+</main>
+
+<div id="birthChoice" role="dialog" aria-modal="true" aria-labelledby="birthChoiceTitle">
+  <div class="birth-choice-inner">
+    <div class="birth-choice-mark">✦</div>
+    <h2 id="birthChoiceTitle">come back to XEMO</h2>
+    <p>Continue this little life, or let XEMO be born again from its first touch.</p>
+    <button id="birthResume" class="birth-resume">resume waking up</button>
+    <button id="birthRebirth" class="birth-rebirth">rebirth from the beginning</button>
+  </div>
+</div>
+
+<style>
+#birthChoice{position:fixed;inset:0;z-index:110;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(7,8,20,.82);backdrop-filter:blur(8px);pointer-events:none}
+#birthHint{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:20;max-width:min(92vw,430px);padding:7px 11px;border:1px solid rgba(205,190,255,.28);border-radius:999px;background:rgba(20,17,42,.84);color:#d8cff1;font-size:11px;line-height:1.35;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s}
+#birthHint.show{opacity:1}
+#dreamScene{position:absolute;inset:0;z-index:4;display:none;overflow:hidden;align-items:flex-end;justify-content:center;background:linear-gradient(#100e31 0%,#292052 58%,#5a4162 100%);pointer-events:none;color:#fff0b8}
+#lidarMap{display:block;width:min(100%,300px);aspect-ratio:1;margin:14px auto 0;border:1px solid rgba(141,232,207,.22);border-radius:50%;background:#0b1020;image-rendering:auto}
+#lidarWorldMap{display:block;width:min(100%,300px);height:auto;margin:12px auto 0;border:1px solid rgba(255,242,168,.18);border-radius:12px;background:#0b1020}
+#dreamScene.show{display:flex;animation:dreamSceneIn .45s ease-out both}
+#dreamScene.show.ready{pointer-events:auto;cursor:pointer}
+#dreamScene .dream-sky-stars{position:absolute;inset:4% 5% 34%;opacity:.88;pointer-events:none}.dream-sky-stars i{position:absolute;font-style:normal;color:#fff9cf;text-shadow:0 0 8px rgba(255,242,170,.8);animation:dreamStarFloat 3.8s ease-in-out infinite}.dream-sky-stars .s1{left:7%;top:28%;font-size:18px}.dream-sky-stars .s2{left:17%;top:11%;font-size:20px}.dream-sky-stars .s3{left:29%;top:38%;font-size:15px}.dream-sky-stars .s4{left:42%;top:17%;font-size:22px}.dream-sky-stars .s5{left:57%;top:32%;font-size:17px}.dream-sky-stars .s6{left:68%;top:9%;font-size:19px}.dream-sky-stars .s7{left:79%;top:43%;font-size:15px}.dream-sky-stars .s8{left:91%;top:19%;font-size:22px}.dream-sky-stars .s9{left:12%;top:57%;font-size:14px}.dream-sky-stars .s10{left:36%;top:61%;font-size:18px}.dream-sky-stars .s11{left:64%;top:56%;font-size:16px}.dream-sky-stars .s12{left:86%;top:65%;font-size:19px}
+#dreamScene .dream-moon{position:absolute;top:15%;left:50%;width:112px;height:112px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle at 34% 30%,rgba(255,255,220,.9) 0 7px,transparent 8px),radial-gradient(circle at 68% 58%,rgba(208,184,116,.42) 0 10px,transparent 11px),radial-gradient(circle at 44% 76%,rgba(208,184,116,.3) 0 6px,transparent 7px),#fff3bd;box-shadow:0 0 18px #fff2ad,0 0 52px rgba(255,233,165,.75);animation:dreamMoon 3.2s ease-in-out infinite}
+#dreamScene .dream-hills{position:absolute;left:-10%;right:-10%;border-radius:50% 50% 0 0 / 100% 100% 0 0}
+#dreamScene .dream-hills.back{bottom:18%;height:34%;background:#26305d;transform:rotate(-3deg)}
+#dreamScene .dream-hills.front{bottom:-8%;height:34%;background:#172342;transform:rotate(3deg)}
+#dreamScene .dream-hills{display:none}
+#dreamScene:after{content:"✦";position:absolute;bottom:25%;left:24%;font-size:22px;color:#bfe7d0;animation:dreamFirefly 2.8s ease-in-out infinite}
+#dreamSceneText{position:relative;z-index:2;margin:0 18px 22%;max-width:360px;text-align:center;font:600 14px/1.5 system-ui;color:#f5eecb;text-shadow:0 2px 10px #100d24;animation:dreamText 1.2s ease-in-out infinite alternate}
+@keyframes dreamSceneIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}@keyframes dreamMoon{50%{transform:translate(-50%,-8px);box-shadow:0 0 24px #fff2ad,0 0 62px rgba(255,233,165,.85)}}@keyframes dreamStarFloat{50%{transform:translateY(-5px) scale(1.12);opacity:.42}}@keyframes dreamFirefly{50%{transform:translate(24px,-16px);opacity:.35}}@keyframes dreamText{to{opacity:.55}}
+#birthChoice.show{display:flex}
+.birth-choice-inner{width:min(420px,100%);text-align:center;color:#f4f1ff;pointer-events:auto}
+.birth-choice-inner button{pointer-events:auto}
+.birth-choice-mark{font-size:38px;color:#fff2a8;text-shadow:0 0 22px #d5b7ff;animation:dreamStars 2.4s ease-in-out infinite}
+.birth-choice-inner h2{margin:10px 0 9px;font-size:22px;line-height:1.2}
+.birth-choice-inner p{margin:0 auto 22px;max-width:310px;color:#bcb4d2;font-size:14px;line-height:1.55}
+.birth-resume{display:block;width:100%;padding:17px 18px;border:0;border-radius:14px;background:#d8c1ff;color:#241537;font:700 16px inherit;box-shadow:0 8px 24px rgba(172,126,255,.25);cursor:pointer}
+.birth-resume:active{transform:translateY(1px)}
+.birth-rebirth{margin-top:17px;border:0;background:transparent;color:#8e879f;font:13px inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.birth-rebirth:hover{color:#c9c1d9}
+#birthSense{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(5,7,20,.72);pointer-events:none}
+#birthSense .birth-card{pointer-events:auto;width:min(560px,100%);padding:22px;border:1px solid #6656a8;border-radius:22px;background:#17132d;color:#f5f1ff;box-shadow:0 18px 60px rgba(0,0,0,.4)}
+#birthSense h2{margin:5px 0 8px;font-size:24px} #birthSense p{color:#b9afd6;line-height:1.5;margin:0 0 14px}.birth-kicker{font-size:11px;letter-spacing:2px;color:#8de8cf}.birth-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.birth-step,.birth-skip{padding:11px 8px;border:1px solid #7766b8;border-radius:12px;background:#242044;color:#fff}.birth-step.done{background:#254f46;border-color:#78e0be}.birth-step.current{background:#7258b8;border-color:#fff2b0;box-shadow:0 0 0 3px rgba(255,242,176,.22)}.birth-step:disabled{opacity:.55}.birth-skip{margin-top:12px;width:100%;background:transparent;color:#9e95b8}
+#birthSense.done{opacity:.82}
+#dreamScreen .dream-moon{position:absolute;top:11%;right:15%;width:62px;height:62px;border-radius:50%;background:#fff7a8;box-shadow:0 0 22px #fff0a5}
+#dreamScreen .dream-stars{position:absolute;top:12%;left:10%;right:30%;height:25%;background:radial-gradient(circle at 8% 24%,#fff9c9 0 1px,transparent 2px),radial-gradient(circle at 28% 70%,#fff9c9 0 2px,transparent 3px),radial-gradient(circle at 54% 18%,#fff9c9 0 1px,transparent 2px),radial-gradient(circle at 78% 54%,#fff9c9 0 1px,transparent 2px);animation:dreamTwinkle 2.4s ease-in-out infinite}
+#dreamScreen .dream-creature{position:relative;width:126px;height:104px;border-radius:48% 48% 42% 42%;background:#8f78d7;box-shadow:0 12px 0 #6956a8,0 18px 28px rgba(70,42,90,.2);animation:dreamFloat 2.8s ease-in-out infinite}
+#dreamScreen .dream-creature i{position:absolute;top:30px;width:22px;height:28px;background:#fff;border-radius:50%}.dream-creature i:first-child{left:28px}.dream-creature i:nth-child(2){right:28px}.dream-creature i:first-child:after,.dream-creature i:nth-child(2):after{content:"";display:block;width:8px;height:8px;margin:10px auto;background:#3d2b52;border-radius:50%}.dream-creature span{position:absolute;right:-20px;top:-32px;font:bold 26px system-ui;color:#7b5cb5;transform:rotate(12deg)}
+#dreamScreen .dream-copy{position:absolute;left:18px;right:18px;bottom:12%;font-size:18px;line-height:1.45}.dream-copy strong{display:block;font-weight:700}.dream-copy small{display:block;margin-top:12px;font-size:12px;color:#735e80;line-height:1.5}
+@keyframes dreamFloat{50%{transform:translateY(-10px) rotate(-2deg)}}@keyframes dreamTwinkle{50%{opacity:.45;transform:scale(1.08)}}
+@keyframes dreamStars{50%{opacity:.35;letter-spacing:8px}}
+</style>
+
+<nav class="nav">
+  <button class="active" data-tab="creature"><span>◉</span>creature</button><button data-tab="connect"><span>⌁</span>connect</button><button data-tab="body"><span>✥</span>body</button><button data-tab="soul"><span>☾</span>soul</button><button data-tab="senses"><span>⌁</span>senses</button><button data-tab="brain"><span>⚙</span>brain</button>
+</nav>
+<script type="module" src="/xemo/js/app-runtime-947.js?v=1004"></script>
+</body>
+</html>

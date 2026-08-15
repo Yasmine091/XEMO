@@ -1,0 +1,10 @@
+{
+  "name": "XEMO Remote",
+  "short_name": "XEMO",
+  "description": "XEMO's local-first creature, brain and body controller",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050711",
+  "theme_color": "#070914",
+  "orientation": "any"
+}
