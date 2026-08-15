@@ -13111,7 +13111,7 @@ updateConversation = function(kind, text) {
     return result;
 };
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("/xemo/sw.js?v=862").catch((() => {}));
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("/xemo/sw.js?v=863").catch((() => {}));
 
 const _selfTestGoalEvidence = window.xemoSelfTest;
 
