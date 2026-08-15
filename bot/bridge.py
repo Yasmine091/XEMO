@@ -154,7 +154,7 @@ class XemoWeb(BaseHTTPRequestHandler):
             return self.reply({"ok": True, "service": "xemo-web"})
         if request_path == "/api/models":
             return self.proxy("GET", "/models")
-        name = "xemo-remote.html" if request_path in ("/", "/index.html") else request_path.lstrip("/")
+        name = "index.html" if request_path in ("/", "/index.html") else request_path.lstrip("/")
         path = (self.root / name).resolve()
         if self.root not in path.parents or not path.is_file():
             return self.reply({"error": "not found"}, 404)
