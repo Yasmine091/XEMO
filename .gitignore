@@ -10,3 +10,4 @@ node_modules/
 output/
 tmp/
 dist/
+.archive/

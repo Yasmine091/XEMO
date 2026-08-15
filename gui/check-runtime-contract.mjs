@@ -15,6 +15,7 @@ if (!/serviceWorker\.register\("\/xemo\/sw\.js\?v=(\d+)"\)/.test(app)) failures.
 if (!/const useStreamingBrain\s*=\s*false/.test(app)) failures.push("the stable non-streaming brain path is not selected");
 if (!/bm_fable/.test(app)) failures.push("the default Kokoro voice is not B-Fable");
 if (!/preservesPitch\s*=\s*false/.test(app)) failures.push("voice pitch is not controlled by the audio path");
+if (!/const kokoroGenerationSpeed\s*=\s*voiceSpeed\s*\/\s*voicePitch/.test(app)) failures.push("Kokoro speed and pitch are not compensated independently");
 if (!/let xemoVoiceFlight\s*=/.test(app) || !/let xemoChatFlight\s*=/.test(app)) failures.push("single-flight guards are missing");
 if (/gb-[0-9a-f]+/i.test(entry + app + bridge)) failures.push("a pairing code is embedded in the public files");
 if (/\/home\/|Public\/Documents|192\.168\./i.test(entry + app + bridge)) failures.push("a local machine path or LAN address is embedded in the public files");

@@ -6985,7 +6985,7 @@ async function speak(text) {
     speakingNow = true;
     const voiceSpeed = Math.max(.5, Math.min(2, +state.speed || 1));
     const voicePitch = Math.max(.7, Math.min(1.7, +state.pitch || 1));
-    const kokoroGenerationSpeed = Math.max(.5, Math.min(2, voiceSpeed / voicePitch));
+    const kokoroGenerationSpeed = voiceSpeed / voicePitch;
     if (state.voiceEngine === "kokoro" || spanishVoice()) {
         let url = "", ttsTimedOut = false, fetchTimer = null, kokoroStarted = false;
         try {
