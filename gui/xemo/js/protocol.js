@@ -66,8 +66,54 @@ const MOVE_ALIASES = {
     peek: "curious_peek"
 };
 
+function cleanThoughtSource(source) {
+    let clean = String(source || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/```(?:json)?|```/gi, "").trim();
+    const open = clean.search(/<think\b[^>]*>/i);
+    if (open >= 0) {
+        const marker = clean.slice(open).match(/^<think\b[^>]*>/i)?.[0] || "<think>";
+        const rest = clean.slice(open + marker.length), close = rest.search(/<\/think>/i);
+        if (close >= 0) clean = clean.slice(0, open) + rest.slice(close + 8);
+        else {
+            const jsonAt = rest.search(/[\[{]/);
+            clean = jsonAt >= 0 ? rest.slice(jsonAt) : clean.slice(0, open);
+        }
+    }
+    return clean.trim();
+}
+
+export function firstBalancedJson(source) {
+    const s = String(source || "");
+    let start = -1, depth = 0, quote = "", escaped = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (start < 0) {
+            if (ch === "{" || ch === "[") {
+                start = i;
+                depth = 1;
+            }
+            continue;
+        }
+        if (quote) {
+            if (escaped) escaped = false;
+            else if (ch === "\\") escaped = true;
+            else if (ch === quote) quote = "";
+            continue;
+        }
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            continue;
+        }
+        if (ch === "{" || ch === "[") depth++;
+        else if (ch === "}" || ch === "]") {
+            depth--;
+            if (!depth) return s.slice(start, i + 1);
+        }
+    }
+    return "";
+}
+
 export function parseThought(source) {
-    const clean = String(source || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?|```/gi, "").trim();
+    const clean = cleanThoughtSource(source);
     const fieldSource = clean.replace(/\s+(?=(?:say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|goal|activity|look|rest|stop|complete)\s*[:=])/gi, "\n"), fields = {}, fieldRe = /(^|\n)\s*(say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|goal|activity|look|rest|stop|complete)\s*[:=]\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\n]+)\s*(?=\n|$)/gi;
     let fm, fieldCount = 0, fieldText = "";
     while (fm = fieldRe.exec(fieldSource)) {
@@ -105,9 +151,25 @@ export function parseThought(source) {
         if (fields.complete != null && /^(true|yes|1)$/i.test(fields.complete)) out.complete = true;
         return out;
     }
-    const m = clean.match(/\{[\s\S]*\}/);
-    if (!m) throw Error("invalid whole-thought JSON");
-    const raw = JSON.parse(m[0]), out = {};
+    let json = firstBalancedJson(clean), raw;
+    try {
+        if (!json || json[0] !== "{") throw Error("not an object");
+        raw = JSON.parse(json);
+    } catch (_) {
+        const starts = [];
+        for (let i = 0; i < clean.length; i++) if (clean[i] === "{") starts.push(i);
+        for (const at of starts.reverse()) {
+            const candidate = firstBalancedJson(clean.slice(at));
+            if (!candidate || candidate[0] !== "{") continue;
+            try {
+                raw = JSON.parse(candidate);
+                json = candidate;
+                break;
+            } catch (_) {}
+        }
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw Error("invalid whole-thought JSON");
+    const out = {};
     if (raw.say != null) {
         const s = String(raw.say).replace(/[\r\n]+/g, " ").trim().slice(0, 220);
         if (s.length < 221) out.say = s;

@@ -27,10 +27,10 @@ _brain_active_kind = ""
 
 
 def acquire_brain_slot(autonomous):
-    """Never let a human conversation queue behind a dead model forever."""
+    """Let a human turn take over while an older autonomous request unwinds."""
     if autonomous:
         return _brain_lock.acquire(blocking=False)
-    return _brain_lock.acquire(timeout=1.25)
+    return _brain_lock.acquire(timeout=12.0)
 
 
 def brain_cancel_generation():
@@ -317,7 +317,9 @@ class XemoWeb(BaseHTTPRequestHandler):
             cancel_autonomous_brain()
         acquired = acquire_brain_slot(autonomous)
         if not acquired:
-            return self.reply({"error": "brain busy; autonomous beat skipped"}, 409)
+            if autonomous:
+                return self.reply({"skipped": True, "reason": "brain busy; autonomous beat skipped"}, 200)
+            return self.reply({"error": "brain busy; human turn could not take the slot"}, 409)
         try:
             self.proxy("POST", "/chat/completions", autonomous)
         finally:

@@ -6,7 +6,7 @@ export function createPerception({onStatus: onStatus = (() => {}), onObjects: on
     });
     function ensureWorker() {
         if (worker) return worker;
-        worker = new Worker(new URL("./perception-worker.js?v=3", import.meta.url), {
+        worker = new Worker(new URL("./perception-worker.js?v=4", import.meta.url), {
             type: "module"
         });
         worker.onmessage = event => {

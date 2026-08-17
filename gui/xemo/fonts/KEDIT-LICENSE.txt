@@ -1,0 +1,8 @@
+Kedit font
+----------
+
+Bitmap font designed for Kedit.
+
+This font is freeware. Commercial use is prohibited.
+Copyright (c) JPJ-PersoWeb 2003.
+Based on Reflection IBM ASCII font, copyright (c) Walker Richer & Quinn, Inc. 1987-1995.

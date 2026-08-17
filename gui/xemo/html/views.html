@@ -1,33 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#070914">
-<title>XEMO</title>
-<meta name="description" content="XEMO's local-first creature, brain and body controller">
-<link rel="icon" href="/xemo/favicon.svg" type="image/svg+xml">
-<link rel="manifest" href="/xemo/manifest.webmanifest">
-<link rel="stylesheet" href="/xemo/css/app.css?v=30">
-
-</head>
-<body class="face-home">
-<svg class="icon-sprite" aria-hidden="true" focusable="false">
-  <symbol id="icon-link" viewBox="0 0 24 24"><path d="M9 15 7 17a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0M15 9l2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0M8 16l8-8"/></symbol>
-  <symbol id="icon-body" viewBox="0 0 24 24"><path d="M5 8h14v9H5zM8 8V5h8v3M8 17v3M16 17v3M2 11h3M19 11h3"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/></symbol>
-  <symbol id="icon-dream" viewBox="0 0 24 24"><path d="M18.5 5.5a8.5 8.5 0 1 0 0 13A7 7 0 1 1 18.5 5.5Z"/><path d="m7 4 .6 1.6L9 6l-1.4.5L7 8l-.6-1.5L5 6l1.4-.4L7 4Z"/></symbol>
-  <symbol id="icon-listen" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></symbol>
-  <symbol id="icon-see" viewBox="0 0 24 24"><path d="M2.5 12s3.4-5 9.5-5 9.5 5 9.5 5-3.4 5-9.5 5-9.5-5-9.5-5Z"/><circle cx="12" cy="12" r="2.4"/></symbol>
-  <symbol id="icon-type" viewBox="0 0 24 24"><path d="M4 6h16M4 12h11M4 18h16"/></symbol>
-  <symbol id="icon-sound" viewBox="0 0 24 24"><path d="M4 10h4l5-4v12l-5-4H4zM17 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
-  <symbol id="icon-muted" viewBox="0 0 24 24"><path d="M4 10h4l5-4v12l-5-4H4zM17 9l4 6M21 9l-4 6"/></symbol>
-  <symbol id="icon-brain" viewBox="0 0 24 24"><path d="M9 5a3 3 0 0 0-5 2 3 3 0 0 0 1 5 3 3 0 0 0 2 5 3 3 0 0 0 5 1V6a3 3 0 0 0-3-1ZM15 5a3 3 0 0 1 5 2 3 3 0 0 1-1 5 3 3 0 0 1-2 5 3 3 0 0 1-5 1V6a3 3 0 0 1 3-1Z"/><path d="M7 9h2M6 14h3M15 9h2M15 14h3"/></symbol>
-  <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 5v14M17 5v14"/></symbol>
-  <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 10 7-10 7z"/></symbol>
-  <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
-  <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
-</svg>
-
 <main class="app">
   <section class="view creature active" data-view="creature">
     <div class="stage">
@@ -90,38 +60,15 @@
   </section>
 
   <section class="view" data-view="brain"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">MIND + AUTONOMY</div></div><span id="brainState" class="pill">offline</span></div>
-    <div class="page"><h1 class="title">mind & autonomy</h1><p class="lede">See what XEMO is doing now, shape his everyday life, or open the technical workspace when you need it.</p>
-      <div class="brain-group brain-group-now"><div class="brain-group-head"><div><span class="section-kicker">everyday view</span><h2>what is happening now</h2></div><span class="brain-group-note">simple status</span></div>
+    <div class="page"><h1 class="title">mind & autonomy</h1><p class="lede">See what XEMO is pursuing, tune everyday behavior, and open advanced diagnostics only when you need them.</p>
       <div class="section"><div class="bodyline"><div><h2>living systems</h2><span class="hint">what is genuinely active right now</span></div><span class="pill on">embodied · v13</span></div><div class="row"><span id="lifeBrain" class="pill">brain</span><span id="lifeAutonomy" class="pill">autonomy</span><span id="lifeBody" class="pill">body</span><span id="lifeEyes" class="pill">eyes</span><span id="lifeEars" class="pill">ears</span><span id="lifeVoice" class="pill">voice</span></div><p id="lifeDetail" class="hint">checking XEMO…</p></div>
-      </div>
-      <div class="brain-group brain-group-life"><div class="brain-group-head"><div><span class="section-kicker">shape his life</span><h2>intentions & behavior</h2></div><span class="brain-group-note">friendly controls</span></div>
       <div class="section"><h2>persistent embodied goal</h2><div id="goalStatus" class="memory">no active goal</div><label style="display:block;margin-top:12px">new goal<input id="goalInput" class="field" placeholder="explore the room · find the chair · follow me"></label><div class="row" style="margin-top:9px"><button id="startGoal" class="primary">start goal</button><button id="stopGoal" class="secondary">stop goal</button></div><p id="bodyLearning" class="hint">body learning waits for verified actions</p></div>
+      <div class="section advanced-start" data-area="advanced"><div class="section-kicker">advanced workspace</div><h2>model & bridge</h2><p class="hint">For technical setup, model selection, performance tuning, and direct bridge checks.</p><div class="stack"><label>XEMO brain bridge<input id="endpoint" class="field" value="/api"></label><label>model<select id="model" class="field"><option value="qwen/qwen3-vl-8b">Qwen3-VL 8B · smarter</option><option value="qwen/qwen3-vl-4b">Qwen3-VL 4B · faster</option></select></label><label>performance<select id="performance" class="field"><option value="auto">normal response path</option><option value="balanced">balanced context</option><option value="lean">lean · low-power PC</option></select></label><label>speech recognition<select id="whisperModel" class="field"><option value="base">Whisper Base · faster</option><option value="small">Whisper Small · clearer</option></select></label><div class="row"><button id="testBrain" class="primary">test brain</button><button id="brainEnabled" class="secondary">brain: on</button></div><p class="hint">The selected model is used for every thought. Lean sends 320px frames and shorter context. Whisper Small understands better but is slower on the Ryzen 2600 and may download on first use.</p></div></div>
       <div class="section"><h2>behavior</h2><label>where XEMO is placed<select id="surface" class="field"><option value="unknown">unknown · wheels stay put</option><option value="floor">floor · safe to roam</option><option value="elevated">desk / table · wheels blocked</option><option value="soft">bed / sofa · no roaming</option></select></label><div class="switch"><span>allow autonomous movement</span><input id="autoMove" type="checkbox"></div><div class="switch"><span>speak responses</span><input id="speakToggle" type="checkbox" checked></div><div class="switch"><span>include phone sensor summary</span><input id="sensorPrompt" type="checkbox" checked></div><p class="hint">Choose floor to permit wandering. Movement also requires the ESP32 online, XEMO resumed, and this tab visible.</p></div>
       <div class="section"><h2>voice</h2><label>voice<select id="voiceEngine" class="field"><option value="browser">phone / browser voice</option><option value="kokoro">XEMO story voice · Kokoro B-Fable (male fantasy)</option><option value="kokoro-es-male">XEMO español · Kokoro Alex (male)</option><option value="kokoro-es">XEMO español · Kokoro Dora</option></select></label><label style="display:block;margin-top:14px">pitch · <output id="pitchOut">1.00×</output><input id="pitch" type="range" min=".7" max="1.7" step=".02" value="1"></label><label style="display:block;margin-top:14px">speed · <output id="speedOut">1.00×</output><input id="speed" type="range" min=".5" max="2" step=".02" value="1"></label><p class="hint">Kokoro B-Fable is XEMO’s default male fantasy voice. Pitch changes pitch, speed changes speed, and they stay independent.</p></div>
-      </div>
-      <details class="brain-group brain-group-technical"><summary class="brain-group-head"><div><span class="section-kicker">technical workspace</span><h2>brain, bridge & recovery</h2></div><span class="brain-group-note">advanced</span></summary>
-      <div class="section advanced-start" data-area="advanced"><div class="section-kicker">advanced workspace</div><h2>model & bridge</h2><p class="hint">For technical setup, model selection, performance tuning, and direct bridge checks.</p><div class="stack"><label>XEMO brain bridge<input id="endpoint" class="field" value="/api"></label><label>model<select id="model" class="field"><option value="qwen/qwen3-vl-8b">Qwen3-VL 8B · smarter</option><option value="qwen/qwen3-vl-4b">Qwen3-VL 4B · faster</option></select></label><label>performance<select id="performance" class="field"><option value="auto">normal response path</option><option value="balanced">balanced context</option><option value="lean">lean · low-power PC</option></select></label><label>speech recognition<select id="whisperModel" class="field"><option value="base">Whisper Base · faster</option><option value="small">Whisper Small · clearer</option></select></label><div class="row"><button id="testBrain" class="primary">test brain</button><button id="brainEnabled" class="secondary">brain: on</button></div><p class="hint">The selected model is used for every thought. Lean sends 320px frames and shorter context. Whisper Small understands better but is slower on the Ryzen 2600 and may download on first use.</p></div></div>
       <div class="section" data-area="advanced"><h2>phone permissions</h2><p id="permissionStatus" class="hint">checking this address…</p><div class="row"><button id="permitMic" class="secondary">allow microphone</button><button id="permitCam" class="secondary">allow camera</button><button id="permitMotion" class="secondary">allow motion</button></div><p class="hint">Permissions are requested only when you press a button. Phones require HTTPS; localhost works only on the computer running XEMO.</p></div>
       <div class="section" data-area="advanced"><h2>backup & recovery</h2><div class="row"><button id="backupBtn" class="secondary">download everything</button><button id="restoreBtn" class="secondary">restore backup</button><button id="resetAllBtn" class="danger">reset XEMO</button><input id="restoreFile" type="file" accept="application/json,.json" hidden></div><p class="hint">Back up this browser’s settings, personality, instructions, memories, and recent moments in one JSON file. Reset deletes local state only.</p></div>
-      <div class="section" data-area="advanced"><h2>live trace</h2><div class="row"><span id="diagSummary" class="hint">no brain requests yet</span><button id="diagExport" class="secondary">export last trace</button></div><div id="brainLog" class="log"></div></div></details>
+      <div class="section" data-area="advanced"><h2>live trace</h2><div class="row"><span id="diagSummary" class="hint">no brain requests yet</span><button id="diagExport" class="secondary">export last trace</button></div><div id="brainLog" class="log"></div></div>
     </div>
   </section>
 </main>
-
-<div id="birthChoice" role="dialog" aria-modal="true" aria-labelledby="birthChoiceTitle">
-  <div class="birth-choice-inner">
-    <div class="birth-choice-mark">✦</div>
-    <h2 id="birthChoiceTitle">come back to XEMO</h2>
-    <p>Continue this little life, or let XEMO be born again from its first touch.</p>
-    <button id="birthResume" class="birth-resume">resume waking up</button>
-    <button id="birthRebirth" class="birth-rebirth">rebirth from the beginning</button>
-  </div>
-</div>
-
-<nav class="nav" aria-label="XEMO views">
-  <button class="active" data-tab="creature"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-see"/></svg><span>face</span></button><button data-tab="connect"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-link"/></svg><span>link</span></button><button data-tab="body"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-body"/></svg><span>body</span></button><button data-tab="soul"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-dream"/></svg><span>memory</span></button><button data-tab="senses"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-listen"/></svg><span>senses</span></button><button data-tab="brain"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#icon-brain"/></svg><span>mind</span></button>
-</nav>
-
-<script type="module" src="/xemo/js/app-runtime-947.js?v=1113"></script>
-</body>
-</html>

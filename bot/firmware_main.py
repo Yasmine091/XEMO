@@ -124,10 +124,15 @@ def _handle(s, pl):
             body.stop_wheels()
         return "drive"
     if t == "wheels":
+        ok = True
         try:
             body.wheels(m.get("left", 0), m.get("right", 0))
         except Exception:
+            ok = False
             body.stop_wheels()
+        if "rid" in m:
+            send_text(s, json.dumps({"t": "ack", "rid": m.get("rid"), "ok": 1 if ok else 0,
+                                     "queued_ms": 0}))
         return "drive"
     if t == "arms":
         eng.clear()
