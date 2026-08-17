@@ -8,7 +8,7 @@
 <meta name="description" content="XEMO's local-first creature, brain and body controller">
 <link rel="icon" href="/xemo/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/xemo/manifest.webmanifest">
-<link rel="stylesheet" href="/xemo/css/app.css?v=30">
+<link rel="stylesheet" href="/xemo/css/app.css?v=31">
 
 </head>
 <body class="face-home">
@@ -51,41 +51,41 @@
   </section>
 
   <section class="view" data-view="connect"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">BODY LINK</div></div><div id="status" class="status"><i class="dot"></i><span>disconnected</span></div></div>
-    <div class="page"><h1 class="title">connection</h1><p class="lede">Pair the body once. XEMO and the manual controls then share the same safe relay.</p>
-      <div class="section stack"><label>pairing code<input id="code" class="field" value=""></label><div class="row"><button id="connectBtn" class="primary">connect XEMO</button><button id="disconnectBtn" class="secondary">disconnect</button></div><p class="hint">the pairing code is saved only in this browser.</p></div>
+    <div class="page"><h1 class="title">connection</h1><p class="lede">Pair the body once. XEMO and the manual controls then share the same safe relay.</p><div class="ui-group-head"><span class="section-kicker">setup</span><h2>pair the body</h2></div>
+      <div class="section stack"><label>pairing code<input id="code" class="field" value=""></label><div class="row"><button id="connectBtn" class="primary">connect XEMO</button><button id="disconnectBtn" class="secondary">disconnect</button></div><p class="hint">the pairing code is saved only in this browser.</p></div><div class="ui-group-head"><span class="section-kicker">verification</span><h2>live status</h2></div>
       <div class="section"><h2>live status</h2><div class="row"><span id="relayPill" class="pill">relay offline</span><span id="bodyPill" class="pill">body asleep</span><span id="brainPill" class="pill">brain unchecked</span></div></div>
     </div>
   </section>
 
   <section class="view" data-view="body"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">BODY CONTROL</div></div><button class="danger panicAll">STOP</button></div>
-    <div class="page"><h1 class="title">body</h1><p class="lede">Drive, test, and inspect the hardware. Hold a direction to move; release to stop.</p>
+    <div class="page"><h1 class="title">body</h1><p class="lede">Drive, test, and inspect the hardware. Hold a direction to move; release to stop.</p><div class="ui-group-head"><span class="section-kicker">manual control</span><h2>drive</h2></div>
       <div class="section"><div class="power"><span>power</span><input id="power" type="range" min=".25" max="1" step=".05" value=".65"><output id="powerOut">65%</output></div>
         <div class="pad"><button data-wl=".35" data-wr="1">↖</button><button data-wl="1" data-wr="1">↑</button><button data-wl="1" data-wr=".35">↗</button><button data-wl="-.7" data-wr=".7">←</button><button class="stop panicAll">STOP</button><button data-wl=".7" data-wr="-.7">→</button><button data-wl="-.35" data-wr="-1">↙</button><button data-wl="-1" data-wr="-1">↓</button><button data-wl="-1" data-wr="-.35">↘</button></div><p id="command" class="hint" style="text-align:center">waiting for a command</p>
       </div>
-      <div class="section"><h2>left arm · GPIO12</h2><input id="left" type="range" min="0" max="180" value="90"><div class="switch"><span>reverse direction</span><input id="leftReverse" type="checkbox"></div><div class="row"><button id="centerArm" class="secondary">center</button><button id="relaxArm" class="secondary">relax</button><button id="testArm" class="secondary">test arm</button></div></div>
+      <div class="ui-group-head"><span class="section-kicker">hardware</span><h2>arms & distance</h2></div><div class="section"><h2>left arm · GPIO12</h2><input id="left" type="range" min="0" max="180" value="90"><div class="switch"><span>reverse direction</span><input id="leftReverse" type="checkbox"></div><div class="row"><button id="centerArm" class="secondary">center</button><button id="relaxArm" class="secondary">relax</button><button id="testArm" class="secondary">test arm</button></div></div>
       <div class="section"><div class="bodyline"><div><h2>right arm · GPIO13</h2><span class="hint">not installed yet</span></div><span class="pill">disabled</span></div></div>
       <div class="section"><div class="bodyline"><div><h2>proximity orientation</h2><span class="hint">HC-SR04 · short-range clearance only · not sight</span></div><strong id="rangeResult" class="reading">—</strong></div><button id="scanBtn" class="primary">check clearance</button></div>
       <div class="section"><div class="bodyline"><div><h2>360° LiDAR</h2><span class="hint">optional LD06/LD19 point cloud · host-side map preview</span></div><span id="lidarStatus" class="pill">not fitted</span></div><canvas id="lidarMap" width="300" height="300" aria-label="Live LiDAR polar scan"></canvas><canvas id="lidarWorldMap" width="300" height="220" aria-label="Estimated local LiDAR map"></canvas><button id="lidarScanBtn" class="secondary" style="width:100%;margin-top:10px">request scan</button><button id="lidarResetBtn" class="secondary" style="width:100%;margin-top:8px">reset estimated map</button><button id="lidarExportBtn" class="secondary" style="width:100%;margin-top:8px">download map JSON</button><p id="lidarMapNote" class="hint">map uses wheel-command dead reckoning; without encoders it is an approximate sketch.</p></div>
-      <div class="section"><h2>wheel tests</h2><div class="row"><button class="secondary" data-test-left="1">left wheel</button><button class="secondary" data-test-right="1">right wheel</button><button class="danger panicAll">stop both</button></div></div>
+      <div class="ui-group-head"><span class="section-kicker">diagnostics</span><h2>hardware tests</h2></div><div class="section"><h2>wheel tests</h2><div class="row"><button class="secondary" data-test-left="1">left wheel</button><button class="secondary" data-test-right="1">right wheel</button><button class="danger panicAll">stop both</button></div></div>
     </div>
   </section>
 
   <section class="view" data-view="soul"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">IDENTITY + MEMORY</div></div><span id="dreamStamp" class="pill">never dreamed</span></div>
-    <div class="page"><h1 class="title">identity & memory</h1><p class="lede">Shape who XEMO is, review what it truly keeps, and let automatic dreams consolidate useful experience.</p>
+    <div class="page"><h1 class="title">identity & memory</h1><p class="lede">Shape who XEMO is, review what it truly keeps, and let automatic dreams consolidate useful experience.</p><div class="ui-group-head"><span class="section-kicker">identity</span><h2>shape XEMO</h2></div>
       <div class="section"><h2>who XEMO is</h2><textarea id="personality" class="fieldarea"></textarea><p class="hint">saved automatically as you type</p></div>
       <div class="section"><h2>standing instructions</h2><textarea id="instructions" class="fieldarea" placeholder="one instruction per line"></textarea></div>
       <div class="section"><h2>how XEMO plays</h2><textarea id="playMemory" class="fieldarea" placeholder="editable goals, games, and body-learning rules"></textarea><p class="hint">editable character memory: examples guide him, but do not limit him</p></div>
-      <div class="section"><h2>what XEMO truly keeps</h2><div id="memory" class="memory"></div><p class="hint">The self-summary is dream-written; the lists below are the durable facts XEMO can actually recall. One-off camera captions and actions stay out.</p><div class="row" style="margin-top:12px"><button id="clearMemory" class="secondary">clear memory</button></div></div>
+      <div class="ui-group-head"><span class="section-kicker">durable knowledge</span><h2>memory</h2></div><div class="section"><h2>what XEMO truly keeps</h2><div id="memory" class="memory"></div><p class="hint">The self-summary is dream-written; the lists below are the durable facts XEMO can actually recall. One-off camera captions and actions stay out.</p><div class="row" style="margin-top:12px"><button id="clearMemory" class="secondary">clear memory</button></div></div><div class="ui-group-head"><span class="section-kicker">short-term context</span><h2>recent moments</h2></div>
       <div class="section"><h2>recent moments</h2><p class="hint">A short session log, not long-term memory. It fades and is never used as a durable fact unless explicitly promoted.</p><div id="moments" class="log"></div></div>
     </div>
   </section>
 
   <section class="view" data-view="senses"><div class="top"><div><div class="brand">X<b>E</b>MO</div><div class="sub">PHONE SENSES</div></div><span id="senseState" class="pill">quiet</span></div>
-    <div class="page"><h1 class="title">senses</h1><p class="lede">Choose what XEMO can use right now. Permissions are requested only when a sense is switched on.</p>
+    <div class="page"><h1 class="title">senses</h1><p class="lede">Choose what XEMO can use right now. Permissions are requested only when a sense is switched on.</p><div class="ui-group-head"><span class="section-kicker">phone senses</span><h2>what XEMO can perceive</h2></div>
       <div class="section"><div class="switch"><div><h2>eyes · camera</h2><span class="hint">camera off means XEMO is figuratively unable to see</span></div><input id="cameraToggle" type="checkbox"></div><video id="camera" class="camera" muted playsinline autoplay></video><div class="bodyline"><span>visual estimate</span><strong id="lightValue">—</strong></div><p id="perceptionStatus" class="hint">local object sense waits for camera</p><p id="visionStatus" class="hint">semantic vision waiting for a VL model</p></div>
       <div class="section"><div class="switch"><div><h2>ears · microphone</h2><span class="hint">microphone off means XEMO cannot hear the room</span></div><input id="micToggle" type="checkbox"></div><div class="meter"><i id="soundMeter"></i></div><div class="bodyline"><span>sound level</span><strong id="soundValue">0%</strong></div></div>
       <div class="section"><div class="switch"><div><h2>motion + orientation</h2><span class="hint">phone tilt and movement</span></div><input id="motionToggle" type="checkbox"></div><div id="motionReadout" class="memory">motion is off</div></div>
-      <div class="section"><h2>screen touch</h2><div id="touchReadout" class="memory">touch the creature face to let XEMO feel it</div></div>
+      <div class="ui-group-head"><span class="section-kicker">embodied input</span><h2>touch</h2></div><div class="section"><h2>screen touch</h2><div id="touchReadout" class="memory">touch the creature face to let XEMO feel it</div></div>
     </div>
   </section>
 
