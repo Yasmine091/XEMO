@@ -3355,6 +3355,7 @@ function react(mode, caption, ms = 1100) {
 }
 
 function tab(name) {
+    if (name === "connect" || name === "senses") name = "body";
     if (!document.querySelector(`.view[data-view="${name}"]`)) name = "creature";
     state.lastTab = name;
     save();
