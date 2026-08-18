@@ -58,7 +58,7 @@ ${fs.readFileSync(path.join(partsDir, "icons.html"), "utf8")}
 ${fs.readFileSync(path.join(partsDir, "views.html"), "utf8")}
 ${fs.readFileSync(path.join(partsDir, "overlays.html"), "utf8")}
 ${fs.readFileSync(path.join(partsDir, "navigation.html"), "utf8")}
-<script type="module" src="/xemo/js/app-runtime-947.js?v=1113"></script>
+<script type="module" src="/xemo/js/app-runtime-947.js?v=1115"></script>
 </body>
 </html>
 `;

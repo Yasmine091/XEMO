@@ -140,6 +140,17 @@ const defaults = {
         updatedAt: 0,
         lastCare: ""
     },
+    lifeCycle: {
+        sequence: 0,
+        phase: "resting",
+        mode: "idle",
+        reason: "waking",
+        detail: "",
+        startedAt: 0,
+        updatedAt: 0,
+        eventId: 0,
+        history: []
+    },
     lastDream: 0
 };
 
@@ -163,6 +174,27 @@ try {
 }
 
 if (!Array.isArray(state.moments)) state.moments = [];
+
+if (!state.lifeCycle || typeof state.lifeCycle !== "object") state.lifeCycle = {};
+state.lifeCycle = {
+    sequence: Math.max(0, +state.lifeCycle.sequence || 0),
+    phase: [ "noticing", "interpreting", "feeling", "remembering", "choosing", "thinking", "acting", "verifying", "learning", "resting" ].includes(state.lifeCycle.phase) ? state.lifeCycle.phase : "resting",
+    mode: String(state.lifeCycle.mode || "idle").slice(0, 24),
+    reason: String(state.lifeCycle.reason || "waking").replace(/\s+/g, " ").trim().slice(0, 180),
+    detail: String(state.lifeCycle.detail || "").replace(/\s+/g, " ").trim().slice(0, 220),
+    startedAt: +state.lifeCycle.startedAt || 0,
+    updatedAt: +state.lifeCycle.updatedAt || 0,
+    eventId: +state.lifeCycle.eventId || 0,
+    history: Array.isArray(state.lifeCycle.history) ? state.lifeCycle.history.filter((x => x && typeof x === "object")).slice(-24).map((x => ({
+        sequence: Math.max(0, +x.sequence || 0),
+        phase: String(x.phase || "resting").slice(0, 24),
+        mode: String(x.mode || "idle").slice(0, 24),
+        reason: String(x.reason || "").replace(/\s+/g, " ").trim().slice(0, 180),
+        detail: String(x.detail || "").replace(/\s+/g, " ").trim().slice(0, 220),
+        t: +x.t || 0,
+        eventId: +x.eventId || 0
+    }))) : []
+};
 
 state.moments = state.moments.filter((x => x && typeof x === "object")).map((x => ({
     t: +x.t || Date.now(),
@@ -820,6 +852,34 @@ function publishEvent(kind, text, priority = 1) {
         state.workingMemory.eventKind = e.kind;
         state.workingMemory.eventPriority = e.priority;
     }
+}
+
+function setLifeCycle(phase, reason = "", detail = "", mode = "idle") {
+    const allowed = new Set([ "noticing", "interpreting", "feeling", "remembering", "choosing", "thinking", "acting", "verifying", "learning", "resting" ]), nextPhase = allowed.has(phase) ? phase : "resting", now = Date.now(), current = state.lifeCycle || {};
+    const next = {
+        sequence: (+current.sequence || 0) + 1,
+        phase: nextPhase,
+        mode: String(mode || "idle").slice(0, 24),
+        reason: String(reason || "").replace(/\s+/g, " ").trim().slice(0, 180),
+        detail: String(detail || "").replace(/\s+/g, " ").trim().slice(0, 220),
+        startedAt: current.phase === nextPhase && current.startedAt ? current.startedAt : now,
+        updatedAt: now,
+        eventId: currentEvent?.id || 0,
+        history: Array.isArray(current.history) ? current.history.slice(-23) : []
+    };
+    next.history.push({
+        sequence: next.sequence,
+        phase: next.phase,
+        mode: next.mode,
+        reason: next.reason,
+        detail: next.detail,
+        t: now,
+        eventId: next.eventId
+    });
+    state.lifeCycle = next;
+    saveLater(220);
+    renderLivingSystems?.();
+    return next;
 }
 
 function eventIsCurrent(id) {
@@ -3970,7 +4030,8 @@ function renderLivingSystems() {
     if (!$("lifeBrain")) return;
     const entries = [ [ "lifeBrain", brainBusy ? "brain thinking" : state.brain ? "brain ready" : "brain off", state.brain ], [ "lifeAutonomy", state.paused ? "autonomy paused" : document.hidden ? "autonomy hidden" : "autonomy alive", !state.paused && !document.hidden ], [ "lifeBody", bodyLinkReady() ? "ESP32 ready" : ws?.readyState === WebSocket.OPEN ? "ESP32 asleep" : "body offline", bodyLinkReady() ], [ "lifeEyes", camStream ? "eyes seeing" : "eyes closed", !!camStream ], [ "lifeEars", listenMode && micStream ? "ears listening" : micStream ? "mic ready" : "ears closed", !!micStream ], [ "lifeVoice", state.speak ? spanishVoice() ? "Kokoro español" : state.voiceEngine === "kokoro" ? "Kokoro English" : "phone voice" : "voice muted", state.speak ] ];
     entries.forEach((([id, text, on]) => setPill(id, text, on)));
-    $("lifeDetail").textContent = `need loop ${state.paused ? "stopped" : "armed"} · Qwen requests ${brainBusy ? "active" : "idle"} · movement ${state.autoMove ? "allowed" : "disabled"} · placement ${state.surface} · last body intent ${state.lastPhysicalAt ? Math.round((Date.now() - state.lastPhysicalAt) / 1e3) + "s ago" : "never"}`;
+    const life = state.lifeCycle || {}, phase = String(life.phase || "resting"), reason = String(life.reason || "quietly existing");
+    $("lifeDetail").textContent = `life ${phase} · ${reason} · need loop ${state.paused ? "stopped" : "armed"} · Qwen requests ${brainBusy ? "active" : "idle"} · movement ${state.autoMove ? "allowed" : "disabled"} · placement ${state.surface} · last body intent ${state.lastPhysicalAt ? Math.round((Date.now() - state.lastPhysicalAt) / 1e3) + "s ago" : "never"}`;
 }
 
 function safetyPlanContext(g = state.activeGoal) {
@@ -6784,7 +6845,8 @@ window.xemoDiagnostics = {
         return JSON.stringify({
             stats: traceStats,
             events: traceBuffer,
-            causalTimeline: (state.causalTimeline || []).slice(-64)
+            causalTimeline: (state.causalTimeline || []).slice(-64),
+            lifeCycle: state.lifeCycle || null
         }, null, 2);
     }
 };
@@ -6792,6 +6854,7 @@ window.xemoDiagnostics = {
 window.xemoSelfTest = function() {
     const checks = {
         state: !!state && typeof state === "object",
+        lifeCycle: !!state.lifeCycle && [ "noticing", "interpreting", "feeling", "remembering", "choosing", "thinking", "acting", "verifying", "learning", "resting" ].includes(state.lifeCycle.phase) && Array.isArray(state.lifeCycle.history),
         timeline: Array.isArray(state.causalTimeline) && state.causalTimeline.length <= 64,
         goalPlan: !!state.taskPlan && Array.isArray(state.taskPlan.planSteps),
         emotion: !!state.emotionState && Number.isFinite(+state.emotionState.intensity),
@@ -6875,6 +6938,7 @@ function autonomousDecisionLease(signature) {
 }
 
 async function think(goal, autonomous = false) {
+    setLifeCycle("thinking", autonomous ? "XEMO is considering its own next move" : "the person asked something", String(goal || "").slice(0, 220), autonomous ? "autonomous" : "human");
     if (autonomous && Date.now() - (+state.lastHumanAt || 0) < 8e3) return;
     if (!autonomous) learnPlacement(goal);
     if (!state.brain) {
@@ -8148,6 +8212,8 @@ function rememberXemoHandoff(t, text) {
 }
 
 async function executeThought(t, autonomous = false) {
+    const lifeAction = t?.goal || t?.activity || t?.gesture || t?.move || t?.moveName || t?.look || t?.rest || t?.stop || t?.complete ? "acting" : t?.emotion ? "feeling" : t?.say ? "acting" : "resting";
+    setLifeCycle(lifeAction, autonomous ? "XEMO chose from its current life" : "answering the person", JSON.stringify(t || {}).slice(0, 220), autonomous ? "autonomous" : "human");
     if (dreamActive) {
         brainLog("dream", "held thought execution during consolidation");
         return;
@@ -8437,6 +8503,7 @@ async function executeThought(t, autonomous = false) {
             }
         }
     }
+    setLifeCycle("resting", autonomous ? "choice completed; waiting for its consequences" : "answer completed", t.say ? String(t.say).slice(0, 220) : "silent choice", autonomous ? "autonomous" : "human");
 }
 
 async function executeAny(reply, autonomous = false) {
@@ -11604,6 +11671,7 @@ function runAutoBeat(waking = false) {
         localStorage.setItem(AUTO_LEASE_OWNER, xemoTabId);
     } catch (_) {}
     autoBeatCount++;
+    setLifeCycle("choosing", "XEMO is selecting a grounded next moment", "autonomous beat " + autoBeatCount, "autonomous");
     const drive = dominantDrive(), need = livingNeed(waking, touchSense.t && Date.now() - touchSense.t < 15e3, vision.newObject && Date.now() - vision.lastObjectChange < 18e3), now = Date.now(), latestFeltAt = typeof latestFeltEvidenceAt === "function" ? latestFeltEvidenceAt() : 0, evidence = [ +state.lastHumanAt || 0, state.lastActionResult?.verified ? +state.lastActionResult.t || 0 : 0, +vision.lastObjectChange || 0, +touchSense.t || 0, latestFeltAt ].join("|"), beatKey = [ evidence, state.activeGoal?.id || 0 ].join("|");
     if (!waking && beatKey === lastBeatAdmissionKey && now - lastBeatAdmissionAt < 18e3) {
         brainLog("autonomy", "held unchanged living beat before opening another brain request");
@@ -14073,7 +14141,7 @@ updateConversation = function(kind, text) {
     return result;
 };
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("/xemo/sw.js?v=941", { updateViaCache: "none" }).then((registration => registration.update().catch((() => {})))).catch((() => {}));
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("/xemo/sw.js?v=942", { updateViaCache: "none" }).then((registration => registration.update().catch((() => {})))).catch((() => {}));
 
 const _selfTestGoalEvidence = window.xemoSelfTest;
 
