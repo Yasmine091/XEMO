@@ -1,5 +1,5 @@
-const CACHE = "xemo-static-v999";
-const SHELL = ["/", "/xemo/css/app.css?v=35", "/xemo/js/app-runtime-947.js?v=1115", "/xemo/js/movement-library.js?v=2", "/xemo/js/perception.js?v=7", "/xemo/js/perception-worker.js?v=4", "/xemo/js/protocol.js?v=98", "/xemo/fonts/SF-Pixelate.ttf", "/xemo/manifest.webmanifest"];
+const CACHE = "xemo-static-v1000";
+const SHELL = ["/", "/xemo/css/app.css?v=35", "/xemo/js/app-runtime-947.js?v=1116", "/xemo/js/movement-library.js?v=2", "/xemo/js/perception.js?v=7", "/xemo/js/perception-worker.js?v=4", "/xemo/js/protocol.js?v=98", "/xemo/fonts/SF-Pixelate.ttf", "/xemo/manifest.webmanifest"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(async cache => {
   await Promise.all(SHELL.map(async url => { try { const r = await fetch(url, {cache:"no-cache"}); if (r.ok) await cache.put(url, r); } catch (_) {} }));
   await self.skipWaiting();

@@ -1643,6 +1643,29 @@ if (state.intention && typeof state.intention !== "object") state.intention = nu
 
 if (state.activeGoal && typeof state.activeGoal !== "object") state.activeGoal = null;
 
+const normalizeWorldObject = (x, index = 0) => {
+    const source = [ "person-taught", "human-confirmed", "local-object-sense", "semantic-vision", "inherited" ].includes(String(x?.source || "")) ? String(x.source) : "local-object-sense";
+    return {
+        ...x,
+        id: String(x?.id || "obj-legacy-" + (index + 1)).slice(0, 48),
+        label: String(x?.label || x?.name || "unknown object").replace(/\s+/g, " ").trim().slice(0, 80),
+        aliases: Array.isArray(x?.aliases) ? [ ...new Set(x.aliases.map((v => String(v).replace(/\s+/g, " ").trim().slice(0, 70))).filter(Boolean)) ].slice(-6) : [],
+        source: source,
+        confidence: Number.isFinite(+x?.confidence) ? Math.max(0, Math.min(1, +x.confidence)) : .25,
+        confidenceReason: String(x?.confidenceReason || (source === "person-taught" ? "taught by the person" : "repeated local visual evidence")).slice(0, 120),
+        firstSeen: +x?.firstSeen || 0,
+        lastSeen: +x?.lastSeen || 0,
+        sightings: Math.max(0, +x?.sightings || 0),
+        observations: Array.isArray(x?.observations) ? x.observations.filter((v => v && typeof v === "object")).slice(-8).map((v => ({
+            t: +v.t || 0,
+            source: String(v.source || source).slice(0, 32),
+            score: Number.isFinite(+v.score) ? Math.max(0, Math.min(1, +v.score)) : null,
+            x: Number.isFinite(+v.x) ? +v.x : null,
+            y: Number.isFinite(+v.y) ? +v.y : null
+        }))) : []
+    };
+};
+
 if (!state.worldModel || typeof state.worldModel !== "object") state.worldModel = {
     objects: [],
     relations: [],
@@ -1659,7 +1682,7 @@ if (!state.worldModel || typeof state.worldModel !== "object") state.worldModel 
 };
 
 state.worldModel = {
-    objects: Array.isArray(state.worldModel.objects) ? state.worldModel.objects.slice(-24) : [],
+    objects: Array.isArray(state.worldModel.objects) ? state.worldModel.objects.slice(-24).map(normalizeWorldObject) : [],
     relations: Array.isArray(state.worldModel.relations) ? state.worldModel.relations.slice(-18) : [],
     events: Array.isArray(state.worldModel.events) ? state.worldModel.events.slice(-24) : [],
     confidence: state.worldModel.confidence && typeof state.worldModel.confidence === "object" ? state.worldModel.confidence : {},
@@ -5513,11 +5536,14 @@ function updateObjectTracks() {
                 id: "obj-" + w.nextId++,
                 label: seen.label,
                 affordances: objectAffordances(seen.label),
+                source: "local-object-sense",
+                confidenceReason: "first local visual observation",
                 firstSeen: now,
                 sightings: 0,
                 confidence: .35,
                 center: null,
-                lastChange: "newly noticed"
+                lastChange: "newly noticed",
+                observations: []
             };
             w.objects.push(obj);
         }
@@ -5526,6 +5552,14 @@ function updateObjectTracks() {
         obj.lastSeen = now;
         obj.sightings = (obj.sightings || 0) + 1;
         obj.confidence = Math.min(1, (+obj.confidence || .35) + .04);
+        obj.observations = [ ...(obj.observations || []), {
+            t: now,
+            source: "local-object-sense",
+            score: Number.isFinite(+seen.score) ? Math.max(0, Math.min(1, +seen.score)) : null,
+            x: center?.x ?? null,
+            y: center?.y ?? null
+        } ].slice(-8);
+        obj.confidenceReason = obj.sightings >= 2 ? "repeated local visual evidence" : "single local visual observation";
         w.salience = scoreVisualSalience(obj.label, novel, moved);
         if (moved) {
             obj.lastChange = "position changed";
@@ -5670,6 +5704,8 @@ function teachObjectFromText(text) {
     }
     worldObj.aliases = [ ...(worldObj.aliases || []).filter((x => x.toLowerCase() !== alias.toLowerCase())), alias ].slice(-6);
     worldObj.aliasConfidence = Math.max(.35, Math.min(1, (+worldObj.aliasConfidence || 0) + .2));
+    worldObj.source = "person-taught";
+    worldObj.confidenceReason = "the person taught this name while the object was visible";
     w.aliases = {
         ...w.aliases || {},
         [alias.toLowerCase()]: worldObj.id
@@ -14032,6 +14068,7 @@ window.xemoSelfTest = function() {
         label: "cup",
         aliases: [ "special blue cup" ]
     }, "special blue cup") && /teachObjectFromText/.test(teachFaceFromText.toString());
+    r.checks.worldEntityProvenance = typeof normalizeWorldObject === "function" && normalizeWorldObject({ label: "bottle", source: "person-taught" }).source === "person-taught" && Array.isArray(normalizeWorldObject({ label: "bottle" }).observations);
     r.checks.faceStability = typeof faceTrack === "object" && typeof knownFaceForSignature === "function" && /faceTrack\.hits\s*>=\s*2/.test(updatePersonIdentity.toString()) && /faceTrack\.misses\s*>=\s*2/.test(updatePersonIdentity.toString()) && /!sig/.test(updatePersonIdentity.toString());
     r.failed = Object.keys(r.checks).filter((k => !r.checks[k]));
     r.ok = r.failed.length === 0;
