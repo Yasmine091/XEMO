@@ -1759,6 +1759,57 @@ for (const k of [ "lessons", "episodes", "threads", "anchors" ]) {
     state.memoryLedger[k] = state.memoryLedger[k].map((x => String(x || "").replace(/\s+/g, " ").trim())).filter((x => x.length >= 10)).slice(-24);
 }
 
+if (!Array.isArray(state.memoryRecords)) state.memoryRecords = [];
+state.memoryRecords = state.memoryRecords.filter((x => x && typeof x === "object" && String(x.text || "").trim())).slice(-96).map((x => ({
+    id: String(x.id || "mem-" + (+x.t || Date.now())).slice(0, 48),
+    text: String(x.text || "").replace(/\s+/g, " ").trim().slice(0, 180),
+    type: [ "episodic", "semantic", "procedural" ].includes(x.type) ? x.type : "episodic",
+    source: String(x.source || "unknown").slice(0, 32),
+    confidence: Number.isFinite(+x.confidence) ? Math.max(0, Math.min(1, +x.confidence)) : .5,
+    observations: Math.max(1, +x.observations || 1),
+    firstSeen: +x.firstSeen || +x.t || Date.now(),
+    lastSeen: +x.lastSeen || +x.t || Date.now(),
+    status: [ "candidate", "confirmed", "consolidated", "outdated" ].includes(x.status) ? x.status : "candidate"
+})));
+
+function memoryRecordType(kind) {
+    if (kind === "body result" || kind === "body learning") return "procedural";
+    if ([ "you", "bond", "relationship", "preference", "person", "place" ].includes(kind)) return "semantic";
+    if ([ "felt", "expression", "goal", "dream", "XEMO" ].includes(kind)) return "episodic";
+    return "";
+}
+
+function memoryRecordSource(kind) {
+    if (kind === "you") return "human-taught";
+    if (kind === "body result" || kind === "body learning") return "body-observation";
+    if (kind === "bond" || kind === "relationship") return "relationship";
+    if (kind === "dream") return "dream-consolidation";
+    return "lived-event";
+}
+
+function recordMemory(text, kind, confidence = .5, status = "candidate") {
+    const value = String(text || "").replace(/\s+/g, " ").trim().slice(0, 180), type = memoryRecordType(kind);
+    if (!value || !type) return;
+    const now = Date.now(), records = state.memoryRecords || [], same = records.find((x => x.type === type && memoryOverlap(x.text, value) >= .82));
+    if (same) {
+        same.lastSeen = now;
+        same.observations = Math.min(24, (+same.observations || 1) + 1);
+        same.confidence = Math.max(+same.confidence || 0, Math.min(1, +confidence || 0));
+        if (status === "confirmed" || status === "consolidated") same.status = status;
+    } else records.push({
+        id: "mem-" + now + "-" + Math.random().toString(36).slice(2, 7),
+        text: value,
+        type: type,
+        source: memoryRecordSource(kind),
+        confidence: Math.max(0, Math.min(1, +confidence || 0)),
+        observations: 1,
+        firstSeen: now,
+        lastSeen: now,
+        status: status
+    });
+    state.memoryRecords = records.slice(-96);
+}
+
 function rememberLedger(kind, text) {
     const v = String(text || "").replace(/\s+/g, " ").trim().slice(0, 180);
     if (v.length < 10 || /^(?:brain|thinking|waiting|listening|undefined|null)$/i.test(v)) return;
@@ -1780,7 +1831,19 @@ function rememberLedger(kind, text) {
         const a = l[key] || [], duplicate = a.some((x => x.toLowerCase() === value.toLowerCase() || key === "threads" && similar(x, value)));
         if (!duplicate) l[key] = [ ...a, value ].slice(-24);
     };
-    if (kind === "body result" && /\b(?:verified|changed|learned|because|no verified|did not respond)\b/i.test(v)) add("lessons", v); else if (kind === "goal" || kind === "bond") add("threads", v); else if (kind === "you" && isDurableHumanFact(v)) add("anchors", v); else if ((kind === "felt" || kind === "expression") && /\b(?:felt|feel|remember|learned|because|safe|protected|hurt|changed|love|wanted)\b/i.test(v) && isDurableDreamFact(v)) add("episodes", v);
+    if (kind === "body result" && /\b(?:verified|changed|learned|because|no verified|did not respond)\b/i.test(v)) {
+        add("lessons", v);
+        recordMemory(v, kind, /verified|changed|learned/i.test(v) ? .82 : .35, /verified|changed|learned/i.test(v) ? "confirmed" : "candidate");
+    } else if (kind === "goal" || kind === "bond") {
+        add("threads", v);
+        recordMemory(v, kind, kind === "bond" ? .72 : .48, kind === "bond" ? "confirmed" : "candidate");
+    } else if (kind === "you" && isDurableHumanFact(v)) {
+        add("anchors", v);
+        recordMemory(v, kind, .9, "confirmed");
+    } else if ((kind === "felt" || kind === "expression") && /\b(?:felt|feel|remember|learned|because|safe|protected|hurt|changed|love|wanted)\b/i.test(v) && isDurableDreamFact(v)) {
+        add("episodes", v);
+        recordMemory(v, kind, .62, "candidate");
+    }
     state.memoryLedger = l;
 }
 
@@ -6882,7 +6945,8 @@ window.xemoDiagnostics = {
             stats: traceStats,
             events: traceBuffer,
             causalTimeline: (state.causalTimeline || []).slice(-64),
-            lifeCycle: state.lifeCycle || null
+            lifeCycle: state.lifeCycle || null,
+            memoryRecords: (state.memoryRecords || []).slice(-32)
         }, null, 2);
     }
 };
@@ -6891,6 +6955,7 @@ window.xemoSelfTest = function() {
     const checks = {
         state: !!state && typeof state === "object",
         lifeCycle: !!state.lifeCycle && [ "noticing", "interpreting", "feeling", "remembering", "choosing", "thinking", "acting", "verifying", "learning", "resting" ].includes(state.lifeCycle.phase) && Array.isArray(state.lifeCycle.history),
+        memoryRecords: Array.isArray(state.memoryRecords) && typeof recordMemory === "function" && [ "episodic", "semantic", "procedural" ].includes(memoryRecordType("body result")),
         timeline: Array.isArray(state.causalTimeline) && state.causalTimeline.length <= 64,
         goalPlan: !!state.taskPlan && Array.isArray(state.taskPlan.planSteps),
         emotion: !!state.emotionState && Number.isFinite(+state.emotionState.intensity),
@@ -9144,6 +9209,7 @@ function clearLearnedMemory() {
     };
     for (const k of [ "learned", "people", "places", "preferences", "diary", "wants", "rules" ]) state.soul[k] = [];
     for (const k of [ "lessons", "episodes", "threads", "anchors" ]) state.memoryLedger[k] = [];
+    state.memoryRecords = [];
     state.relationship.style = "unknown";
     state.relationship.rituals = [];
     state.relationship.boundaries = [];
@@ -9183,6 +9249,7 @@ clearLearnedMemory = function() {
     state.bodyExperiments = [];
     state.causalMemory = [];
     state.predictionLedger = [];
+    state.memoryRecords = [];
     state.bodyModel = {};
     state.skills = {};
     state.actionHistory = [];
