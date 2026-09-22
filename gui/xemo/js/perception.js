@@ -6,7 +6,7 @@ export function createPerception({onStatus: onStatus = (() => {}), onObjects: on
     });
     function ensureWorker() {
         if (worker) return worker;
-        worker = new Worker(new URL("./perception-worker.js?v=4", import.meta.url), {
+        worker = new Worker(new URL("./perception-worker.js?v=5", import.meta.url), {
             type: "module"
         });
         worker.onmessage = event => {
@@ -22,7 +22,7 @@ export function createPerception({onStatus: onStatus = (() => {}), onObjects: on
                 });
             } else {
                 onObjects(m.objects || []);
-                status(m.objects?.length ? m.objects.map((x => `${x.label} ${Math.round(x.score * 100)}%`)).join(" · ") : "no familiar objects", "ready");
+                status(m.objects?.length ? m.objects.map((x => `${x.label === "person" ? "person" : "possible " + x.label} ${Math.round(x.score * 100)}%`)).join(" · ") : "no familiar objects", "ready");
             }
             if (running) schedule(isUrgent() ? 1400 : 3e4);
         };

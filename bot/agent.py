@@ -28,7 +28,7 @@ VERBS:
  forward(seconds=0.2..4)
  backward(seconds=0.2..4)
  turn(degrees=-180..180)
- arm(degrees=0..180)
+ arm(degrees=0..270; 135=center)
  look()
  scan()
  stop()
@@ -79,6 +79,14 @@ def ask_model(base, model, history, goal, observation, autonomous=False):
     out = http_json(base.rstrip("/") + "/chat/completions", {
         "model": model, "messages": messages, "max_tokens": 80,
         "temperature": 0.4, "stream": False,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "robot_command",
+                "strict": False,
+                "schema": {"type": "object", "additionalProperties": True},
+            },
+        },
     })
     return clean_model_command(out["choices"][0]["message"].get("content", ""))
 
@@ -514,10 +522,10 @@ async def run(args):
                 result = await bot.move(0, .6 if degrees > 0 else -.6,
                                         max(.3, abs(degrees) / 90 * .8))
             elif verb == "arm":
-                deg = max(0, min(180, float(p.get("degrees", 90))))
-                await bot.send({"t": "arms", "left": deg, "right": 90})
+                deg = max(0, min(270, float(p.get("degrees", 135))))
+                await bot.send({"t": "arms", "left": deg, "right": 135})
                 result = {
-                    "text": f"arm command sent to {deg:.0f} degrees",
+                    "text": f"arm position command sent to {deg:.0f} degrees",
                     "verified": False,
                     "inconclusive": True,
                     "observed": "arm position has no feedback sensor",

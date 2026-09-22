@@ -9,6 +9,11 @@ export function parseVerb(source) {
         if (thought.say) return [ "speak", {
             text: thought.say
         } ];
+        if (thought.sequence) return [ "sequence", {
+            names: thought.sequence
+        } ];
+        if (thought.body) return [ "body", thought.body ];
+        if (thought.arms) return [ "arms", thought.arms ];
         if (thought.gesture) return [ "gesture", {
             name: thought.gesture
         } ];
@@ -51,20 +56,103 @@ export function parseVerb(source) {
 
 const EMOTIONS = new Set([ "happy", "excited", "sad", "suspicious", "proud", "love", "confused", "determined", "surprised", "giggly", "wink", "awe", "wonder", "annoyed", "angry", "worried", "focused", "cheeky", "bashful", "shy", "laughing", "dreaming", "scanning", "mischief", "embarrassed", "victorious", "curious", "resting", "calm", "cautious", "protective", "relieved", "lonely", "hopeful", "tender", "frustrated", "bored", "stubborn", "playful", "safe", "homesick", "warm", "attentive", "settled" ]);
 
-const GESTURES = new Set([ "wave", "dance", "sway", "tantrum", "happy_bounce", "arm_flap", "dramatic_gasp", "look_around", "celebrate", "wiggle", "shy_peek", "left_wheel_twice", "right_wheel_twice", "curious_peek", "tiny_bow", "retreat_gently" ]);
+const GESTURES = new Set([ "wave", "wave_left", "wave_right", "dance", "sway", "tantrum", "happy_bounce", "arm_flap", "dramatic_gasp", "look_around", "celebrate", "wiggle", "wiggle_arms", "hello_big", "stretch", "shrug", "clap", "cheer", "point_left", "point_right", "peek_left", "peek_right", "circle_left", "circle_right", "figure_eight", "robot", "shiver", "reverse_turn", "arms_down", "arms_up", "arms_open", "arms_close", "arms_back", "arms_cross", "salute", "up_down", "arms_together", "arms_apart", "high_five", "beckon", "hug", "apology_bow", "sleepy", "excited_bounce", "inch_forward", "inch_backward", "quick_turn_left", "quick_turn_right", "zigzag", "cautious_scan", "victory", "raise_left", "raise_right", "lower_left", "lower_right", "back_left", "back_right", "single_arm_sweep_left", "single_arm_sweep_right", "double_wave", "alternating_raise", "different_angles", "mirror_sweep", "staggered_pose", "pulse_left", "pulse_right", "ripple_raise", "ripple_back", "staircase_raise", "staircase_lower", "open_close", "back_to_up", "up_to_back", "left_point_right_back", "right_point_left_back", "cross_open", "salute_switch", "slow_bilateral", "greeting_sequence", "celebration_sequence", "curious_scan_arms", "retreat_and_wave", "dance_wave_combo", "shy_peek", "left_wheel_once", "right_wheel_once", "left_wheel_twice", "right_wheel_twice", "forward_short", "forward_medium", "backward_short", "pivot_left", "pivot_right", "arc_left", "arc_right", "scan_left", "scan_right", "curious_peek", "tiny_bow", "retreat_gently" ]);
+const SOUNDS = new Set([ "chirp", "trill", "whistle", "warble", "blip", "alarm", "squeal", "droop", "fanfare", "purr", "none" ]);
+const BURSTS = new Set([ "sparkle", "joy", "pulse", "ripple", "shiver", "rain", "none" ]);
 
 const MOVE_ALIASES = {
     "step forward": "forward_short",
     "move forward": "forward_short",
     "go forward": "forward_short",
+    "roll forward": "forward_short",
     "step back": "backward_short",
     "move backward": "backward_short",
     "go back": "backward_short",
     "turn left": "pivot_left",
     "turn right": "pivot_right",
+    "turn left wheel once": "left_wheel_once",
+    "turn right wheel once": "right_wheel_once",
+    "pivot left": "pivot_left",
+    "pivot right": "pivot_right",
     "look around": "look_around",
     peek: "curious_peek"
 };
+
+const GESTURE_ALIASES = {
+    "saluda": "wave",
+    "wave left": "wave_left",
+    "wave with left arm": "wave_left",
+    "wave one left arm": "wave_left",
+    "wave one arm": "wave_left",
+    "one arm wave": "wave_left",
+    "one arm wave left": "wave_left",
+    "wave right": "wave_right",
+    "wave with right arm": "wave_right",
+    "wave one right arm": "wave_right",
+    "one arm wave right": "wave_right",
+    "saluda con el brazo izquierdo": "wave_left",
+    "saluda con el brazo derecho": "wave_right",
+    "saludo con un brazo izquierdo": "wave_left",
+    "saludo con un brazo derecho": "wave_right",
+    "saluda con un brazo": "wave_left",
+    "mueve solo el brazo izquierdo": "single_arm_sweep_left",
+    "mueve solo el brazo derecho": "single_arm_sweep_right",
+    "saludar": "wave",
+    "haz hola": "wave",
+    "di hola": "wave",
+    "baila": "dance",
+    "danza": "dance",
+    "mueve los brazos": "wiggle_arms",
+    "mueve brazos": "wiggle_arms",
+    "levanta los brazos": "arms_up",
+    "baja los brazos": "arms_down",
+    "abre los brazos": "arms_open",
+    "cierra los brazos": "arms_close",
+    "brazo izquierdo arriba": "raise_left",
+    "brazo derecho arriba": "raise_right",
+    "apunta a la izquierda": "point_left",
+    "apunta a la derecha": "point_right",
+    "celebra": "celebrate",
+    "estira": "stretch",
+    "encoge los hombros": "shrug",
+    "saludo doble": "double_wave",
+    "camina feliz": "happy_walk",
+    "señala izquierda": "signal_left",
+    "señala derecha": "signal_right"
+};
+
+function normalizeGestureName(value) {
+    const gesture = String(value || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (GESTURES.has(gesture)) return gesture;
+    const normalized = gesture.replace(/\s+/g, " ");
+    if (GESTURE_ALIASES[normalized]) return GESTURE_ALIASES[normalized];
+    if (/^(?:wave|saluda|saludar|saludo)\s+(?:with\s+)?(?:the\s+)?left\s+arm$/.test(normalized)) return "wave_left";
+    if (/^(?:wave|saluda|saludar|saludo)\s+(?:with\s+)?(?:the\s+)?right\s+arm$/.test(normalized)) return "wave_right";
+    return "";
+}
+
+function normalizeMoveName(value) {
+    const move = String(value || "").toLowerCase().trim().replace(/[’']/g, "'");
+    if (!move) return "";
+    const normalized = move.replace(/\s+/g, "_");
+    if (move === "stop" || move === "stop moving") return "stop";
+    if (GESTURES.has(move)) return move;
+    if (GESTURES.has(normalized)) return normalized;
+    if (MOVE_ALIASES[move]) return MOVE_ALIASES[move];
+    if (MOVE_ALIASES[normalized]) return MOVE_ALIASES[normalized];
+    if (/^(?:turn|spin)_left_wheel_once$/.test(normalized)) return "left_wheel_once";
+    if (/^(?:turn|spin)_right_wheel_once$/.test(normalized)) return "right_wheel_once";
+    if (/\b(?:roll|move|go|advance|avanza|avanzar|adelante)\b[\s\S]*\b(?:forward|ahead|opposite wall|suavemente)\b|^(?:avanza|avanzar)\b/.test(move)) {
+        const distance = move.match(/(\d+(?:\.\d+)?)\s*(cm|m)\b/);
+        const meters = distance ? Number(distance[1]) * (distance[2] === "cm" ? .01 : 1) : 0;
+        return meters > .7 ? "forward_medium" : "forward_short";
+    }
+    if (/\b(?:back|backward|reverse|retreat|retrocede)\b/.test(move)) return "backward_short";
+    if (/\b(?:turn|pivot|gira)\b[\s\S]*\b(?:left|izquierda)\b/.test(move)) return "pivot_left";
+    if (/\b(?:turn|pivot|gira)\b[\s\S]*\b(?:right|derecha|clockwise)\b/.test(move)) return "pivot_right";
+    if (/\b(?:turn|spin|rotate|gira)\b/.test(move)) return "cautious_scan";
+    return "";
+}
 
 function cleanThoughtSource(source) {
     let clean = String(source || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/```(?:json)?|```/gi, "").trim();
@@ -114,7 +202,7 @@ export function firstBalancedJson(source) {
 
 export function parseThought(source) {
     const clean = cleanThoughtSource(source);
-    const fieldSource = clean.replace(/\s+(?=(?:say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|goal|activity|look|rest|stop|complete)\s*[:=])/gi, "\n"), fields = {}, fieldRe = /(^|\n)\s*(say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|goal|activity|look|rest|stop|complete)\s*[:=]\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\n]+)\s*(?=\n|$)/gi;
+    const fieldSource = clean.replace(/\s+(?=(?:say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|arms|goal|activity|look|rest|stop|complete)\s*[:=])/gi, "\n"), fields = {}, fieldRe = /(^|\n)\s*(say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|arms|goal|activity|look|rest|stop|complete)\s*[:=]\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\n]+)\s*(?=\n|$)/gi;
     let fm, fieldCount = 0, fieldText = "";
     while (fm = fieldRe.exec(fieldSource)) {
         fieldCount++;
@@ -123,7 +211,7 @@ export function parseThought(source) {
         if (v[0] === '"' && last === '"' || v[0] === "'" && last === "'") v = v.slice(1, -1).replace(/\\([\\"'])/g, "$1");
         fields[fm[2].toLowerCase()] = v;
     }
-    const normalizedFieldSource = fieldSource.replace(/\b(say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|goal|activity|look|rest|stop|complete)\s*:\s*/gi, "$1=");
+    const normalizedFieldSource = fieldSource.replace(/\b(say|speak|emotion|reason|because|question|prediction|observed|learned|gesture|move|arms|goal|activity|look|rest|stop|complete)\s*:\s*/gi, "$1=");
     if (fieldCount && fieldText.trim() === normalizedFieldSource.replace(/\r/g, "").trim()) {
         const out = {};
         if (fields.say != null || fields.speak != null) {
@@ -138,10 +226,19 @@ export function parseThought(source) {
             if (fields[k] != null && String(fields[k]).trim()) out[k] = String(fields[k]).trim().slice(0, 180);
         }
         if (typeof fields.emotion === "string" && EMOTIONS.has(fields.emotion.toLowerCase())) out.emotion = fields.emotion.toLowerCase();
-        if (typeof fields.gesture === "string" && GESTURES.has(fields.gesture.toLowerCase())) out.gesture = fields.gesture.toLowerCase();
+        if (typeof fields.gesture === "string") {
+            const gesture = normalizeGestureName(fields.gesture);
+            if (gesture) out.gesture = gesture;
+        }
+        if (fields.arms != null) {
+            try {
+                const arms = JSON.parse(String(fields.arms));
+                if (arms && typeof arms === "object") out.arms = { left: Math.max(0, Math.min(270, Number(arms.left ?? 135))), right: Math.max(0, Math.min(270, Number(arms.right ?? 135))) };
+            } catch (_) {}
+        }
         if (typeof fields.move === "string") {
-            const move = fields.move.toLowerCase().trim();
-            if (GESTURES.has(move)) out.moveName = move; else if (MOVE_ALIASES[move]) out.moveName = MOVE_ALIASES[move];
+            const move = normalizeMoveName(fields.move);
+            if (move === "stop") out.stop = true; else if (move) out.moveName = move;
         }
         if (typeof fields.goal === "string" && fields.goal.trim()) out.goal = fields.goal.trim().slice(0, 120);
         if (typeof fields.activity === "string" && fields.activity.trim()) out.activity = fields.activity.trim().slice(0, 80);
@@ -182,10 +279,31 @@ export function parseThought(source) {
     for (const k of [ "question", "prediction", "observed", "learned" ]) {
         if (raw[k] != null && String(raw[k]).trim()) out[k] = String(raw[k]).replace(/[\r\n]+/g, " ").trim().slice(0, 180);
     }
-    if (typeof raw.gesture === "string" && GESTURES.has(raw.gesture.toLowerCase())) out.gesture = raw.gesture.toLowerCase();
+    if (typeof raw.gesture === "string") {
+        const gesture = normalizeGestureName(raw.gesture);
+        if (gesture) out.gesture = gesture;
+    }
+    if (Array.isArray(raw.sequence)) out.sequence = raw.sequence.map(x => String(x || "").toLowerCase().trim()).filter(Boolean).slice(0, 4);
+    if (raw.arms && typeof raw.arms === "object") {
+        const pose = String(raw.arms.pose || "").toLowerCase();
+        const poses = {
+            down: { left: 135, right: 135 },
+            neutral: { left: 135, right: 135 },
+            up: { left: 270, right: 270 },
+            open: { left: 270, right: 270 },
+            close: { left: 0, right: 0 },
+            closed: { left: 0, right: 0 },
+            back: { left: 0, right: 0 },
+            wide: { left: 270, right: 270 }
+        };
+        const selected = poses[pose] || {};
+        out.arms = {};
+        if (raw.arms.left != null || selected.left != null) out.arms.left = Math.max(0, Math.min(270, Number(raw.arms.left ?? selected.left)));
+        if (raw.arms.right != null || selected.right != null) out.arms.right = Math.max(0, Math.min(270, Number(raw.arms.right ?? selected.right)));
+    }
     if (typeof raw.move === "string") {
-        const move = raw.move.toLowerCase().trim();
-        if (GESTURES.has(move)) out.moveName = move; else if (MOVE_ALIASES[move]) out.moveName = MOVE_ALIASES[move];
+        const move = normalizeMoveName(raw.move);
+        if (move === "stop") out.stop = true; else if (move) out.moveName = move;
     }
     if (raw.move && typeof raw.move === "object") {
         const linear = Math.max(-.7, Math.min(.7, Number(raw.move.linear) || 0)), yaw = Math.max(-.7, Math.min(.7, Number(raw.move.yaw) || 0));
@@ -196,11 +314,64 @@ export function parseThought(source) {
         };
     }
     if (typeof raw.goal === "string" && raw.goal.trim()) out.goal = raw.goal.trim().slice(0, 120);
-    if (typeof raw.activity === "string") out.activity = raw.activity.trim().slice(0, 80);
+    if (typeof raw.activity === "string") {
+        const activity = raw.activity.trim().slice(0, 80);
+        out.activity = activity;
+        const activityGesture = activity.toLowerCase().replace(/^(?:wiggle|wave|dance|sway|celebrate|tantrum|happy_bounce|arm_flap|dramatic_gasp|look_around|shy_peek|curious_peek|tiny_bow|retreat_gently)\s+(?:its?\s+)?arms?$/, "$1");
+        if (GESTURES.has(activityGesture)) out.gesture = activityGesture;
+    }
     if (typeof raw.look === "boolean") out.look = raw.look;
     if (typeof raw.rest === "boolean") out.rest = raw.rest;
     if (typeof raw.stop === "boolean") out.stop = raw.stop;
     if (typeof raw.complete === "boolean") out.complete = raw.complete;
+    if (typeof raw.sound === "string" && SOUNDS.has(raw.sound.toLowerCase())) out.sound = raw.sound.toLowerCase();
+    if (typeof raw.burst === "string" && BURSTS.has(raw.burst.toLowerCase())) out.burst = raw.burst.toLowerCase();
+    if (Array.isArray(raw.sing)) out.sing = raw.sing.slice(0, 6).map(x => ({ hz: Math.max(80, Math.min(900, Number.isFinite(Number(x?.hz)) ? Number(x.hz) : 240)), ms: Math.max(120, Math.min(1200, Number.isFinite(Number(x?.ms)) ? Number(x.ms) : 300)) }));
+    if (raw.body && typeof raw.body === "object" && Array.isArray(raw.body.steps)) out.body = { steps: raw.body.steps.slice(0, 8).map(x => ({ l: Math.max(0, Math.min(270, Number.isFinite(Number(x?.l)) ? Number(x.l) : 135)), r: Math.max(0, Math.min(270, Number.isFinite(Number(x?.r)) ? Number(x.r) : 135)), wl: Math.max(-1, Math.min(1, Number.isFinite(Number(x?.wl)) ? Number(x.wl) : 0)), wr: Math.max(-1, Math.min(1, Number.isFinite(Number(x?.wr)) ? Number(x.wr) : 0)), ms: Math.max(120, Math.min(2000, Number.isFinite(Number(x?.ms)) ? Number(x.ms) : 400)) })) };
+    if (raw.learn && typeof raw.learn === "object" && Array.isArray(raw.learn.steps)) {
+        const name = String(raw.learn.name || "").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+        const steps = raw.learn.steps.slice(0, 12).map(x => ({
+            left: Math.max(-1, Math.min(1, Number(x?.left ?? x?.l) || 0)),
+            right: Math.max(-1, Math.min(1, Number(x?.right ?? x?.r) || 0)),
+            arm: Math.max(0, Math.min(270, Number(x?.arm) || 135)),
+            armRight: x?.armRight != null || x?.arm_r != null ? Math.max(0, Math.min(270, Number(x?.armRight ?? x?.arm_r) || 135)) : null,
+            armBoth: x?.armBoth === true,
+            ms: Math.max(120, Math.min(2000, Number(x?.ms) || 400))
+        }));
+        if (name && steps.length) out.learn = { name, steps };
+    }
+    if (raw.walk && typeof raw.walk === "object") {
+        const walk = raw.walk;
+        const secs = Math.max(.5, Math.min(8, Number(walk.secs) || 1));
+        const dir = String(walk.dir || "fwd").toLowerCase();
+        const move = {
+            fwd: { linear: .7, yaw: 0 },
+            forward: { linear: .7, yaw: 0 },
+            back: { linear: -.7, yaw: 0 },
+            backward: { linear: -.7, yaw: 0 },
+            reverse: { linear: -.7, yaw: 0 },
+            left: { linear: 0, yaw: .7 },
+            right: { linear: 0, yaw: -.7 }
+        }[dir];
+        if (move) out.move = { ...move, ms: Math.round(secs * 1000) };
+        out.walk = { secs, dir };
+    }
+    if (typeof raw.log === "string" && raw.log.trim()) out.log = raw.log.replace(/\s+/g, " ").trim().slice(0, 180);
+    if (typeof raw.glow === "string" && raw.glow.trim()) out.glow = raw.glow.replace(/\s+/g, " ").trim().slice(0, 90);
+    if (Array.isArray(raw.ladder)) out.ladder = raw.ladder.slice(0, 3).map(x => String(x || "").replace(/\s+/g, " ").trim().slice(0, 80)).filter(Boolean);
+    if (Number.isFinite(Number(raw.rung_done))) out.rung_done = Math.max(0, Math.min(3, Number(raw.rung_done)));
+    if (typeof raw.identity_proposal === "string" && raw.identity_proposal.trim()) out.identity_proposal = raw.identity_proposal.replace(/\s+/g, " ").trim().slice(0, 220);
+    if (raw.scratchpad && typeof raw.scratchpad === "object") {
+        const s = raw.scratchpad, cleanList = value => Array.isArray(value) ? value.map(x => String(x || "").replace(/\s+/g, " ").trim().slice(0, 90)).filter(Boolean).slice(0, 6) : [];
+        out.scratchpad = {
+            state: typeof s.state === "string" ? s.state.slice(0, 90) : "",
+            add_rules: cleanList(s.add_rules),
+            remove_rules: cleanList(s.remove_rules),
+            reflex: s.reflex && typeof s.reflex === "object" ? { trig: String(s.reflex.trig || ""), act: String(s.reflex.act || ""), say: String(s.reflex.say || "").slice(0, 24) } : null,
+            remove_reflex: typeof s.remove_reflex === "string" ? s.remove_reflex : "",
+            mood: s.mood && typeof s.mood === "object" ? { v: Number(s.mood.v), e: Number(s.mood.e) } : null
+        };
+    }
     return out;
 }
 
@@ -224,6 +395,6 @@ export function responseNeedsCorrection(reply, {autonomous: autonomous = false, 
     const prose = String(reply || "").replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[\s\S]*?```/g, "").trim();
     if (!autonomous && prose && !/^\s*(?:error|failed|invalid|undefined|null)\b/i.test(prose)) return false;
     if (autonomous) return !verb;
-    const physical = [ "forward", "backward", "turn", "arm", "gesture", "follow", "stop", "rest" ].includes(verb);
+    const physical = [ "forward", "backward", "turn", "arm", "arms", "gesture", "follow", "stop", "rest" ].includes(verb);
     return movementAsked ? !physical : verb !== "speak";
 }
