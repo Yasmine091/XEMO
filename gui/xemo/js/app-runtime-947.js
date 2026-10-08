@@ -1,8 +1,8 @@
 import { createPerception } from "./perception.js?v=9";
 
-import { firstBalancedJson, parseVerb, parseThought, responseNeedsCorrection } from "./protocol.js?v=112";
+import { firstBalancedJson, parseVerb, parseThought, responseNeedsCorrection } from "./protocol.js?v=114";
 
-import { MOVEMENTS, composeMovement, makeBodySequence, movementCatalog } from "./movement-library.js?v=17";
+import { MOVEMENTS, composeMovement, movementCatalog, movementIds, movementPrimitiveIds, normalizeMovementSequence, movementSequenceId, resolveMovementId } from "./movement-library.js?v=19";
 
 import { createSpeechController } from "./speech-controller.js?v=5";
 
@@ -83,6 +83,7 @@ const defaults = {
     model: "qwen/qwen3-vl-8b",
     performance: "auto",
     whisperModel: "base",
+    speechLanguage: "auto",
     voice: "",
     voiceEngine: "kokoro",
     pitch: 1.22,
@@ -270,8 +271,11 @@ state.soundModel.recent = Array.isArray(state.soundModel.recent) ? state.soundMo
 if (![ "xemo-full", "growbot-wheels" ].includes(state.bodyProfile)) state.bodyProfile = "xemo-full";
 if (!state.learnedMovements || typeof state.learnedMovements !== "object") state.learnedMovements = {};
 for (const [name, movement] of Object.entries(state.learnedMovements)) {
-    if (/^[a-z0-9_]{1,40}$/.test(name) && movement && Array.isArray(movement.steps) && movement.steps.length) {
-        MOVEMENTS[name] = movement;
+    const recipe = normalizeMovementSequence(movement?.recipe);
+    if (/^learned_[a-z0-9_]{1,40}$/.test(name) && movement?.schemaVersion === 2 && recipe.length >= 2) {
+        try {
+            composeMovement(name, recipe, { label: movement.label, persisted: true });
+        } catch (_) {}
     }
 }
 state.leftReverse = true;
@@ -7109,13 +7113,12 @@ function safeDrive(linear, yaw, ms, label, continuous = false) {
 // wheel is a bounded arc, not a turn primitive.  Keep the aliases accepted at
 // the protocol boundary while translating them once, before execution.
 function xemoNativeMovementName(name) {
-    const key = String(name || "").toLowerCase().trim();
+    const key = resolveMovementId(name);
+    if (!key) return "";
     if (state.bodyProfile === "growbot-wheels") return key;
     return ({
         left_wheel_once: "arc_right",
         right_wheel_once: "arc_left",
-        left_wheel_twice: "arc_right_long",
-        right_wheel_twice: "arc_left_long"
     })[key] || key;
 }
 
@@ -7693,7 +7696,7 @@ function runLibraryMovement(name, autonomous = false) {
         brainLog("movement", "full stop · library skill");
         return true;
     }
-    face(name === "celebrate" ? "excited" : name === "wave" ? "happy" : "moving");
+    face(name === "celebrate" ? "excited" : name.startsWith("wave_") ? "happy" : "moving");
     bodyNarrate("gesture", {
         name: name
     }, autonomous);
@@ -7702,15 +7705,16 @@ function runLibraryMovement(name, autonomous = false) {
         halt();
         return false;
     }
+    const hasArmSteps = steps.some(step => step.arm != null || step.armRight != null);
     const ackState = {
-        expected: 2,
+        expected: 1 + (hasArmSteps ? 1 : 0),
         received: 0,
         failed: false
     }, ackBase = "library-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7), armAckRid = ackBase + "-arm", wheelAckRid = ackBase + "-wheel", acceptAck = ack => {
         ackState.received += 1;
         ackState.failed = ackState.failed || !ack.ok;
     };
-    bodyAckWaiters.set(armAckRid, acceptAck);
+    if (hasArmSteps) bodyAckWaiters.set(armAckRid, acceptAck);
     bodyAckWaiters.set(wheelAckRid, acceptAck);
     setTimeout((() => {
         bodyAckWaiters.delete(armAckRid);
@@ -7738,6 +7742,31 @@ function runLibraryMovement(name, autonomous = false) {
         if (elapsed >= total) {
             settled = true;
             halt();
+            if (m.learningCandidate && !ackState.failed && ackState.received >= ackState.expected) {
+                state.learnedMovements = state.learnedMovements || {};
+                state.learnedMovements[name] = {
+                    schemaVersion: 2,
+                    label: String(m.label || "XEMO-created movement").slice(0, 100),
+                    recipe: m.recipe.slice(),
+                    at: Date.now()
+                };
+                m.learningCandidate = false;
+                m.persisted = true;
+                const learned = Object.entries(state.learnedMovements)
+                    .filter(([, item]) => item?.schemaVersion === 2)
+                    .sort((a, b) => (+a[1].at || 0) - (+b[1].at || 0));
+                while (learned.length > 32) {
+                    const [oldest] = learned.shift();
+                    if (oldest !== name) {
+                        delete state.learnedMovements[oldest];
+                        delete MOVEMENTS[oldest];
+                    }
+                }
+                brainLog("movement", `saved ${name} from an acknowledged composition of known actions`);
+                save();
+            } else if (m.learningCandidate) {
+                brainLog("movement", `did not save ${name}; the body did not acknowledge the full movement`);
+            }
             bodyLearn(name, before, total + 250, { ackState, channel: "library" });
             brainLog("movement", `${m.label} · realtime library skill · ${steps.length} steps`);
             return;
@@ -7802,6 +7831,8 @@ function directActionAck(name) {
         wiggle: "a little wiggle, just for you.",
         sway: "i’m swaying with you.",
         wave: "hi! waving back.",
+        wave_left: "hi! waving with my left arm.",
+        wave_right: "hi! waving with my right arm.",
         celebrate: "yes! celebrating with you.",
         tiny_bow: "a tiny bow.",
         curious_peek: "peekaboo.",
@@ -7830,7 +7861,7 @@ function directActionAck(name) {
 function directBodyCommand(text) {
     const s = String(text || "").toLowerCase();
     let name = "";
-    if (/\b(?:dance|baila|bailar)\b/.test(s)) name = "dance"; else if (/\b(?:wiggle|menear)\b/.test(s)) name = "wiggle"; else if (/\b(?:sway|balance|mécete|mecete)\b/.test(s)) name = "sway"; else if (/\b(?:wave|saluda|saludar)\b/.test(s)) name = "wave"; else if (/\b(?:celebrate|celebrat|celebra|festeja)\b/.test(s)) name = "celebrate"; else if (/\b(?:bow|bow down|inclínate|inclinate)\b/.test(s)) name = "tiny_bow"; else if (/\b(?:peek|peekaboo|asómate|asomate)\b/.test(s)) name = "curious_peek"; else if (/\b(?:look around|mira alrededor|mira)\b/.test(s)) name = "look_around"; else if (/\b(?:back up|retreat|retrocede suavemente)\b/.test(s)) name = "retreat_gently"; else if (/\b(?:go forward|move forward|avanza|adelante)\b/.test(s)) name = "forward_short"; else if (/\b(?:go back|move backward|retrocede)\b/.test(s)) name = "backward_short"; else if (/\b(?:turn left|gira a la izquierda)\b/.test(s)) name = "pivot_left"; else if (/\b(?:turn right|gira a la derecha)\b/.test(s)) name = "pivot_right"; else if (/\b(?:curve left|arc left)\b/.test(s)) name = "arc_left"; else if (/\b(?:curve right|arc right)\b/.test(s)) name = "arc_right"; else if (/\b(?:scan left|look left)\b/.test(s)) name = "scan_left"; else if (/\b(?:scan right|look right)\b/.test(s)) name = "scan_right"; else if (/\b(?:stop moving|stop)\b/.test(s)) {
+    if (/\b(?:wave|saluda|saludar)\b.{0,28}\b(?:left|izquierd[oa])\b|\b(?:left|izquierd[oa])\b.{0,28}\b(?:wave|saluda|saludar)\b/.test(s)) name = "wave_left"; else if (/\b(?:wave|saluda|saludar)\b.{0,28}\b(?:right|derech[oa])\b|\b(?:right|derech[oa])\b.{0,28}\b(?:wave|saluda|saludar)\b/.test(s)) name = "wave_right"; else if (/\b(?:wave|saluda|saludar)\b.{0,28}\b(?:one|a|un|un[oae])\s+(?:arm|brazo)\b|\b(?:one|a|un|un[oae])\s+(?:arm|brazo)\b.{0,28}\b(?:wave|saluda|saludar)\b/.test(s)) name = /\b(?:right|derech[oa])\b/.test(s) ? "wave_right" : "wave_left"; else if (/\b(?:dance|baila|bailar)\b/.test(s)) name = "dance"; else if (/\b(?:wiggle|menear)\b/.test(s)) name = "wiggle"; else if (/\b(?:sway|balance|mécete|mecete)\b/.test(s)) name = "sway"; else if (/\b(?:wave|saluda|saludar)\b/.test(s)) name = "wave"; else if (/\b(?:celebrate|celebrat|celebra|festeja)\b/.test(s)) name = "celebrate"; else if (/\b(?:bow|bow down|inclínate|inclinate)\b/.test(s)) name = "tiny_bow"; else if (/\b(?:peek|peekaboo|asómate|asomate)\b/.test(s)) name = "curious_peek"; else if (/\b(?:look around|mira alrededor|mira)\b/.test(s)) name = "look_around"; else if (/\b(?:back up|retreat|retrocede suavemente)\b/.test(s)) name = "retreat_gently"; else if (/\b(?:go forward|move forward|roll forward|avanza|adelante)\b/.test(s)) name = "forward_short"; else if (/\b(?:go back|move backward|roll backward|retrocede)\b/.test(s)) name = "backward_short"; else if (/\b(?:turn left|gira a la izquierda)\b/.test(s)) name = "pivot_left"; else if (/\b(?:turn right|gira a la derecha)\b/.test(s)) name = "pivot_right"; else if (/\b(?:curve left|arc left)\b/.test(s)) name = "arc_left"; else if (/\b(?:curve right|arc right)\b/.test(s)) name = "arc_right"; else if (/\b(?:scan left|look left)\b/.test(s)) name = "scan_left"; else if (/\b(?:scan right|look right)\b/.test(s)) name = "scan_right"; else if (/\b(?:stop moving|stop|para|parar)\b/.test(s)) {
         name = "stop";
         if (state.activeGoal) stopGoal("person cancelled");
     } else if (/\b(?:spin|gira|dar una vuelta)\b/.test(s)) return void execute("turn(degrees=180)", false).then((() => directActionAck("pivot_right"))).catch((e => {
@@ -10133,8 +10164,8 @@ async function think(goal, autonomous = false) {
         // decoration. Keep enough of it during direct turns for the model to
         // retain Growbot's bond, silence, grounding, and continuity rules.
         const characterLimit = conversation ? state.performance === "lean" ? 3200 : 6000 : 7600, characterLayerForModel = GROWBOT_CHARACTER_LAYER.length > characterLimit ? GROWBOT_CHARACTER_LAYER.slice(0, characterLimit) + "\n[older character detail compacted for this thought]" : GROWBOT_CHARACTER_LAYER;
-        const thoughtContract = conversation ? "DIRECT RESPONSE CONTRACT: Return ONLY compact JSON, no markdown. Include one short natural say sentence that answers the person's newest meaning. Optional Growbot fields: emotion, sound, burst, sing, gesture, body, move, look, goal, activity, rest, stop, complete, scratchpad, learn. For an explicit movement request, obey the exact named action. Never output internal state, raw motor values, or placeholder text." : 'GROWBOT WHOLE-THOUGHT MODE: Return ONLY one compact JSON object, no markdown. Keep spoken say to at most 14 words, or say:"" when silence is the honest choice. Optional fields: emotion, sound (occasional droid-like sound), burst (occasional screen light effect), sing (up to six {hz,ms} notes), body (expressive body.steps), walk (learned travel intent), learn:{name,steps}, scratchpad, log, glow, ladder, rung_done, identity_proposal, and the private XEMO fields question, prediction, observed, learned, goal, activity, look, rest, stop, complete. Choose at most one physical intent per thought. Do not narrate sensors or internal state. Scratchpad edits are only for explicit human rules, local reflexes, or slow mood; identity and long-arc wants change only during dreams. A command is not proof that the body moved: use observed sensor or person evidence. If nothing earned words or action, return say:"" and omit action fields.\n\nCHOICE OWNERSHIP: You are the mind. Choose one genuine priority from current senses, the latest event, recent traces, dreams, and verified body results. Do not ask the person what you should do during an autonomous beat. Never select a gesture merely because it is listed. The local XEMO controller only translates and safety-vetoes your chosen action.';
-        const legacyWheelNames = new Set([ "left_wheel_once", "right_wheel_once", "left_wheel_twice", "right_wheel_twice" ]), movementCatalog = Object.entries(MOVEMENTS).filter(([name]) => name !== "stop" && !(state.bodyProfile === "xemo-full" && legacyWheelNames.has(name))).map(([name, movement]) => name + "=" + movement.label).join(", ");
+        const thoughtContract = conversation ? "DIRECT RESPONSE CONTRACT: Return ONLY compact JSON, no markdown. Include one short natural say sentence that answers the person's newest meaning. Optional fields: emotion, sound, burst, sing, gesture, sequence, arms, move, look, goal, activity, rest, stop, complete, scratchpad, learn. Understand the request in the person's language, then express body actions only with the stable action IDs listed below. Never invent motor steps or output coordinates for a sequence." : 'GROWBOT WHOLE-THOUGHT MODE: Return ONLY one compact JSON object, no markdown. Keep spoken say to at most 14 words, or say:"" when silence is the honest choice. Optional fields: emotion, sound, burst, sing, gesture, sequence, arms, move, walk, learn:{title,sequence}, scratchpad, log, glow, ladder, rung_done, identity_proposal, and private XEMO fields question, prediction, observed, learned, goal, activity, look, rest, stop, complete. Choose at most one physical intent per thought. A movement is a stable action ID, not prose. Build a new movement only as a sequence of listed IDs; never invent motor coordinates, keyframes, or raw body.steps. The local controller owns angles, timing, wheel limits, and smooth execution. Understand commands in any language and map their meaning to the same IDs. Do not narrate sensors or internal state. If nothing earned words or action, return say:"" and omit action fields.\n\nCHOICE OWNERSHIP: You are the mind. Choose one genuine priority from current senses, the latest event, recent traces, dreams, and verified body results. Do not ask the person what you should do during an autonomous beat. Never select a gesture merely because it is listed. The local XEMO controller only translates and safety-vetoes your chosen action.';
+        const currentMovementCatalog = movementCatalog(state.bodyProfile);
         const compactContextText = (value, head, tail) => {
             const text = String(value || "");
             if (text.length <= head + tail + 80) return text;
@@ -10176,7 +10207,7 @@ async function think(goal, autonomous = false) {
         const bodyParityContract = "\nBODY PARITY: This XEMO body has two independently addressable arms, two driven wheels, and one proximity/distance sensor. Arm semantics are physical and stable: logical 135° means arms down/neutral, logical 270° means arms up, and logical 0° means arms back. The left arm is mounted in reverse and the local controller always compensates. You have free independent arm control: arms:{\"left\":270,\"right\":0} moves both to different angles; arms:{\"left\":270} moves only the left while the right holds; arms:{\"right\":0} moves only the right while the left holds; arms:{\"left\":135,\"right\":135} moves both together. Prefer named poses when useful, but do not force matching angles. Never claim distance, wheel, or arm feedback that was not provided." + (state.bodyProfile === "growbot-wheels" ? "\nACTIVE BODY PROFILE: GrowBot wheel-kit compatibility. Use the named wheel-kit-compatible movement vocabulary and keep wheel actions short." : "\nACTIVE BODY PROFILE: XEMO full differential drive. Use forward_short/backward_short, pivot_left/pivot_right, arc_left/arc_right, or cautious_scan for wheels. Do not choose legacy left_wheel_once/right_wheel_once/left_wheel_twice/right_wheel_twice names; those are compatibility aliases, not XEMO actions. A wheel action must serve the current request or goal; never add wheel motion to an ordinary greeting or conversation turn.") + "\nCURRENT ARM POSITION: " + armPositionContext() + ".";
         const msgs = compactBrainMessages([ {
             role: "system",
-            content: systemPrompt(conversation) + "\n\n" + characterLayerForModel + "\n\nCURRENT EDITABLE PLAY MEMORY (use as examples, not limits):\n" + promptPlayMemory() + "\n\nMOVEMENT VOCABULARY (use the exact gesture name when asked):\n" + movementCatalog + "\n\n" + thoughtContract + bodyParityContract
+            content: systemPrompt(conversation) + "\n\n" + characterLayerForModel + "\n\nCURRENT EDITABLE PLAY MEMORY (use as examples, not limits):\n" + promptPlayMemory() + "\n\nSTABLE MOVEMENT IDs (interpret the person's meaning in any language; output only an ID, never a translated name):\n" + currentMovementCatalog + "\n\n" + thoughtContract + bodyParityContract
         }, ...historyForPrompt, {
             role: "user",
             content: contentForModel
@@ -10263,7 +10294,14 @@ async function think(goal, autonomous = false) {
                     additionalProperties: false
                 },
                 gesture: {
-                    type: "string"
+                    type: "string",
+                    enum: movementIds(state.bodyProfile)
+                },
+                sequence: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 4,
+                    items: { type: "string", enum: movementPrimitiveIds(state.bodyProfile) }
                 },
                 move: {
                     anyOf: [ {
@@ -10320,16 +10358,11 @@ async function think(goal, autonomous = false) {
                     type: "array",
                     items: { type: "object", properties: { hz: { type: "number" }, ms: { type: "number" } }, additionalProperties: false }
                 },
-                body: {
-                    type: "object",
-                    properties: { steps: { type: "array", items: { type: "object", properties: { l: { type: "number" }, r: { type: "number" }, wl: { type: "number" }, wr: { type: "number" }, ms: { type: "number" } }, additionalProperties: false } } },
-                    additionalProperties: false
-                },
                 learn: {
                     type: "object",
                     properties: {
-                        name: { type: "string" },
-                        steps: { type: "array", items: { type: "object", properties: { left: { type: "number" }, right: { type: "number" }, arm: { type: "number" }, armRight: { type: "number" }, armBoth: { type: "boolean" }, ms: { type: "number" } }, additionalProperties: false } }
+                        title: { type: "string" },
+                        sequence: { type: "array", minItems: 2, maxItems: 4, items: { type: "string", enum: movementPrimitiveIds(state.bodyProfile) } }
                     },
                     additionalProperties: false
                 },
@@ -10743,13 +10776,22 @@ function bodyNarrate(verb, p, autonomous) {
     if (mode) face(mode, null);
 }
 
+const MOVEMENT_COMMAND_VERBS = new Set([ "forward", "backward", "turn", "arm", "arms", "stop", "rest", "follow", "speak", "look", "complete", "goal", "activity" ]);
+
 function normalizeBodyAlias(verb, p) {
     if (verb === "spin") return [ "turn", {
         degrees: 180
     } ];
-    const aliases = new Set([ "wave", "dance", "sway", "wiggle", "celebrate", "tantrum", "happy_bounce", "arm_flap", "dramatic_gasp", "look_around", "shy_peek" ]);
-    if (aliases.has(verb)) return [ "gesture", {
-        name: verb
+    if (verb === "gesture") {
+        const name = resolveMovementId(p?.name);
+        return [ "gesture", {
+            ...p,
+            name: name || String(p?.name || "")
+        } ];
+    }
+    const movementId = resolveMovementId(verb);
+    if (movementId && !MOVEMENT_COMMAND_VERBS.has(verb)) return [ "gesture", {
+        name: movementId
     } ];
     return [ verb, p ];
 }
@@ -10776,7 +10818,7 @@ async function execute(reply, autonomous = false) {
         if (state.speak) await speak(text);
         return;
     }
-    const physical = [ "forward", "backward", "turn", "arm", "arms", "gesture", "follow", "stop", "rest" ].includes(verb), wheelGesture = verb === "gesture" && [ "dance", "sway", "tantrum", "happy_bounce", "dramatic_gasp", "look_around", "celebrate", "wiggle", "shy_peek", "left_wheel_twice", "right_wheel_twice" ].includes(String(p.name || "wave")), needsWheels = [ "forward", "backward", "turn", "follow" ].includes(verb) || wheelGesture;
+    const physical = [ "forward", "backward", "turn", "arm", "arms", "gesture", "follow", "stop", "rest" ].includes(verb), wheelGesture = verb === "gesture" && xemoMovementHasWheels(p.name), needsWheels = [ "forward", "backward", "turn", "follow" ].includes(verb) || wheelGesture;
     if (state.paused && physical) throw Error("movement rejected while paused");
     if (physical && !bodyLinkReady()) throw Error("movement rejected because the ESP32 body is offline");
     if (autonomous && !state.autoMove && needsWheels) throw Error("autonomous wheel movement is switched off");
@@ -10878,68 +10920,26 @@ async function execute(reply, autonomous = false) {
         face("happy", "trying my arm");
         brainLog("body", "left arm command sent; waiting for acknowledgement");
     } else if (verb === "gesture") {
-        let name = String(p.name || "wave"), before = senseSnapshot();
+        let name = String(p.name || "wave");
         const nativeName = xemoNativeMovementName(name);
+        if (!nativeName || !MOVEMENTS[nativeName]) throw Error("unknown movement ID: " + name);
         if (nativeName !== name) brainLog("movement", `${name} translated to XEMO-native ${nativeName}`);
         name = nativeName;
-        const wheelNames = new Set([ "dance", "sway", "tantrum", "happy_bounce", "dramatic_gasp", "look_around", "celebrate", "wiggle", "shy_peek", "left_wheel_twice", "right_wheel_twice" ]), wheeled = wheelNames.has(name);
+        const wheeled = xemoMovementHasWheels(name);
         if (wheeled && state.surface !== "floor") {
-            if (state.surface === "unknown" && [ "dance", "sway", "happy_bounce", "celebrate", "wiggle" ].includes(name)) {
-                name = "arm_flap";
+            if (state.surface === "unknown" && [ "dance", "sway" ].includes(name)) {
+                name = "wave_both";
                 wheeled = false;
                 brainLog("safety", "placement unknown · converted wheel gesture to safe arm expression");
             } else throw Error("wheel gesture needs placement confirmed as floor");
         }
-        satisfyDrive(name === "tantrum" ? "frustration" : "play", .32);
+        satisfyDrive("play", .32);
         satisfyDrive("expression", .35);
-        if (MOVEMENTS[name] && name !== "left_wheel_twice" && name !== "right_wheel_twice") {
+        if (MOVEMENTS[name]) {
             runLibraryMovement(name, autonomous);
             return;
         }
-        if (name === "left_wheel_twice" || name === "right_wheel_twice") {
-            const left = name[0] === "l";
-            clearMotionTimers();
-            face("moving");
-            [ [ 0, .55 ], [ 700, 0 ], [ 1050, .55 ], [ 1750, 0 ] ].forEach((([ms, power]) => later((() => send({
-                t: "wheels",
-                left: left ? power : 0,
-                right: left ? 0 : power
-            })), ms)));
-            later(halt, 1800);
-            bodyLearn(name, before, 2100);
-        } else {
-            const seq = name === "dance" ? [ [ 45, .58, -.58 ], [ 135, -.58, .58 ], [ 55, .58, -.58 ], [ 90, 0, 0 ] ] : name === "sway" ? [ [ 70, .56, -.56 ], [ 110, -.56, .56 ], [ 70, .56, -.56 ], [ 90, 0, 0 ] ] : name === "tantrum" ? [ [ 20, .64, -.64 ], [ 150, -.64, .64 ], [ 25, .64, -.64 ], [ 145, -.64, .64 ], [ 90, 0, 0 ] ] : name === "happy_bounce" ? [ [ 35, .58, .58 ], [ 145, -.56, -.56 ], [ 50, .58, .58 ], [ 90, 0, 0 ] ] : name === "arm_flap" ? [ [ 20, 0, 0 ], [ 155, 0, 0 ], [ 25, 0, 0 ], [ 140, 0, 0 ], [ 90, 0, 0 ] ] : name === "dramatic_gasp" ? [ [ 10, -.56, -.56 ], [ 165, 0, 0 ], [ 90, 0, 0 ] ] : name === "look_around" ? [ [ 90, .58, -.58 ], [ 90, -.58, .58 ], [ 90, 0, 0 ] ] : name === "celebrate" ? [ [ 40, .6, -.6 ], [ 140, -.6, .6 ], [ 90, 0, 0 ] ] : name === "wiggle" ? [ [ 75, .58, -.58 ], [ 105, -.58, .58 ], [ 75, .58, -.58 ], [ 90, 0, 0 ] ] : name === "shy_peek" ? [ [ 35, -.55, -.55 ], [ 75, .55, .55 ], [ 90, 0, 0 ] ] : [ [ 45, 0, 0 ], [ 135, 0, 0 ], [ 55, 0, 0 ], [ 90, 0, 0 ] ];
-            const ackState = {
-                expected: seq.length,
-                received: 0,
-                failed: false
-            };
-            clearMotionTimers();
-            face(name === "tantrum" ? "annoyed" : name === "shy_peek" ? "shy" : name === "happy_bounce" || name === "celebrate" ? "excited" : "moving");
-            seq.forEach(((s, i) => later((() => {
-                lastArmAngle = s[0];
-                const rid = "gesture-" + Date.now() + "-" + i + "-" + Math.random().toString(36).slice(2, 6);
-                bodyAckWaiters.set(rid, ack => {
-                    ackState.received++;
-                    if (!ack.ok) ackState.failed = true;
-                });
-                send({
-                    t: "arms",
-                    left: s[0],
-                    right: 135,
-                    rid: rid
-                });
-                send({
-                    t: "wheels",
-                    left: s[1],
-                    right: s[2]
-                });
-            }), i * 520)));
-            later(halt, seq.length * 520 + 80);
-            bodyLearn(name, before, seq.length * 520 + 250, {
-                ackState: ackState
-            });
-        }
+        throw Error("movement is not present in the validated library: " + name);
     } else if (verb === "follow") {
         if (state.surface !== "floor") throw Error("following needs placement confirmed as floor");
         if (!camStream) throw Error("following needs the camera eyes enabled by your person");
@@ -11229,7 +11229,7 @@ const _executeCapabilityGate = execute;
 
 execute = async function(reply, autonomous = false) {
     try {
-        const [verb, p] = normalizeBodyAlias(...parseVerb(reply)), wheelGesture = verb === "gesture" && [ "dance", "sway", "tantrum", "happy_bounce", "dramatic_gasp", "look_around", "celebrate", "wiggle", "shy_peek", "left_wheel_twice", "right_wheel_twice" ].includes(String(p?.name || "")), needsDrive = [ "forward", "backward", "turn", "follow" ].includes(verb) || wheelGesture;
+        const [verb, p] = normalizeBodyAlias(...parseVerb(reply)), wheelGesture = verb === "gesture" && xemoMovementHasWheels(p?.name), needsDrive = [ "forward", "backward", "turn", "follow" ].includes(verb) || wheelGesture;
         if (verb === "arm" && !hasBodyCapability("arms")) throw Error("this body has no arm capability");
         if (needsDrive && !hasBodyCapability("drive")) throw Error("this body has no drive capability");
         if ((verb === "forward" || verb === "backward" || verb === "follow") && !hasBodyCapability("range")) brainLog("body", "range capability unavailable · keeping movement conservative");
@@ -11440,49 +11440,26 @@ function applyGrowbotFastFields(t) {
 
 function materializeThoughtMovement(t) {
     if (!t || typeof t !== "object") return "";
-    let kind = "", payload = null;
-    if (Array.isArray(t.sequence) && t.sequence.length) {
-        kind = "sequence";
-        payload = t.sequence.slice(0, 4).map(x => xemoNativeMovementName(x)).filter(Boolean);
-    } else if (t.body && Array.isArray(t.body.steps) && t.body.steps.length) {
-        kind = "body";
-        payload = t.body.steps.slice(0, 8);
-    } else if (t.move && t.arms && (t.arms.left != null || t.arms.right != null)) {
-        const linear = Math.max(-1, Math.min(1, Number(t.move.linear) || 0)), yaw = Math.max(-1, Math.min(1, Number(t.move.yaw) || 0));
-        kind = "body";
-        payload = [ {
-            l: t.arms.left ?? 135,
-            r: t.arms.right ?? 135,
-            wl: linear + yaw,
-            wr: linear - yaw,
-            ms: t.move.ms || 700
-        } ];
-    } else if (t.arms && (t.arms.left != null || t.arms.right != null)) {
-        kind = "body";
-        payload = [ { l: t.arms.left ?? 135, r: t.arms.right ?? 135, ms: 420 } ];
-    }
-    if (!kind || !payload?.length) return "";
-    const source = kind + ":" + JSON.stringify(payload);
-    let hash = 2166136261;
-    for (const ch of source) {
-        hash ^= ch.charCodeAt(0);
-        hash = Math.imul(hash, 16777619);
-    }
-    const name = `thought_${kind}_${(hash >>> 0).toString(36)}`;
+    const isLearned = !!(t.learn && Array.isArray(t.learn.sequence));
+    const sequence = normalizeMovementSequence(isLearned ? t.learn.sequence : t.sequence, 4);
+    if (!sequence.length) return "";
+    if (isLearned && sequence.length < 2) return "";
+    const name = movementSequenceId(sequence, isLearned ? "learned" : "combo");
+    if (!name) return "";
     try {
-        if (!MOVEMENTS[name]) {
-            if (kind === "sequence") composeMovement(name, payload, { label: "XEMO composed body action" });
-            else makeBodySequence(name, payload);
-        }
+        if (!MOVEMENTS[name] || isLearned && !MOVEMENTS[name].persisted) composeMovement(name, sequence, {
+            label: String(t.learn?.title || "XEMO-created movement").replace(/[\r\n]+/g, " ").slice(0, 100),
+            learningCandidate: isLearned
+        });
         return MOVEMENTS[name] ? name : "";
     } catch (e) {
-        brainLog("movement", `rejected ${kind} composition: ${errorText(e, "invalid body action")}`);
+        brainLog("movement", `rejected ID composition: ${errorText(e, "invalid movement sequence")}`);
         return "";
     }
 }
 
 async function executeThought(t, autonomous = false) {
-    const lifeAction = t?.reflection ? "learning" : t?.goal || t?.activity || t?.gesture || t?.arms || t?.sequence || t?.body || t?.move || t?.moveName || t?.look || t?.rest || t?.stop || t?.complete ? "acting" : t?.emotion ? "feeling" : t?.say ? "acting" : "resting";
+    const lifeAction = t?.reflection ? "learning" : t?.goal || t?.activity || t?.gesture || t?.arms || t?.sequence || t?.learn || t?.body || t?.move || t?.moveName || t?.look || t?.rest || t?.stop || t?.complete ? "acting" : t?.emotion ? "feeling" : t?.say ? "acting" : "resting";
     setLifeCycle(lifeAction, autonomous ? "XEMO chose from its current life" : "answering the person", JSON.stringify(t || {}).slice(0, 220), autonomous ? "autonomous" : "human");
     if (autonomous && t?.reflection) recordPrivateReflection(t.reflection, t.kind || "reflection", t.grounding || "");
     if (autonomous && t?.say && !autonomousSpeechOpportunity() && !state.activeGoal) {
@@ -11495,23 +11472,23 @@ async function executeThought(t, autonomous = false) {
     }
     applyGrowbotFastFields(t, autonomous);
     const thoughtMovement = materializeThoughtMovement(t);
-    if (thoughtMovement) t.moveName = thoughtMovement;
-    if (t.learn?.name && Array.isArray(t.learn.steps)) {
-        const name = String(t.learn.name).toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
-        if (name && !MOVEMENTS[name]) {
-            const steps = t.learn.steps.slice(0, 12).map(x => ({
-                left: Math.max(-1, Math.min(1, Number(x.left) || 0)),
-                right: Math.max(-1, Math.min(1, Number(x.right) || 0)),
-                arm: Math.max(0, Math.min(270, Number(x.arm) || 135)),
-                armRight: x.armRight == null ? null : Math.max(0, Math.min(270, Number(x.armRight) || 135)),
-                armBoth: x.armBoth === true,
-                ms: Math.max(120, Math.min(2000, Number(x.ms) || 400))
-            }));
-            state.learnedMovements[name] = { label: "learned " + name.replace(/_/g, " "), surface: "any", steps };
-            MOVEMENTS[name] = state.learnedMovements[name];
-            brainLog("movement", "learned new movement: " + name);
-            save();
+    if (thoughtMovement) {
+        t.moveName = thoughtMovement;
+        if (t.sequence || t.learn?.sequence) {
+            delete t.gesture;
+            delete t.move;
+            delete t.arms;
+            delete t.sequence;
+            delete t.learn;
         }
+    }
+    if (t.body) {
+        delete t.body;
+        brainLog("movement", "discarded raw body steps; only library IDs can define a sequence");
+    }
+    if (t.learn?.steps) {
+        delete t.learn.steps;
+        brainLog("movement", "discarded raw learned coordinates; learning requires a validated ID recipe");
     }
     if (autonomous) {
         const spoken = typeof t?.say === "string" ? t.say : "";
@@ -13778,7 +13755,8 @@ async function transcribeSpeech(blob) {
             headers: {
                 "content-type": blob.type,
                 "x-xemo-whisper-model": state.whisperModel,
-                "x-xemo-stt-mode": "command"
+                "x-xemo-stt-mode": "command",
+                "x-xemo-language": state.speechLanguage || "auto"
             },
             body: blob
         }, 3e4, "hearing");
@@ -13790,6 +13768,31 @@ async function transcribeSpeech(blob) {
             throw Error(r.ok ? "transcriber returned invalid JSON" : `transcription HTTP ${r.status}`);
         }
         if (!r.ok) throw Error(j.error || "transcription HTTP " + r.status);
+        // Keep the first pass fast, but do not accept a visibly uncertain
+        // short command as final. The retry uses the normal accuracy path
+        // only for weak/noisy results, so clear speech stays low-latency.
+        const weakTranscript = (+j.avg_logprob || -2) < -.9 || (+j.no_speech_probability || 0) > .48;
+        if (weakTranscript && state.whisperModel === "base") {
+            try {
+                const retry = await fetchTimed("/api/transcribe", {
+                    method: "POST",
+                    headers: {
+                        "content-type": blob.type,
+                        "x-xemo-whisper-model": state.whisperModel,
+                        "x-xemo-stt-mode": "accuracy",
+                        "x-xemo-language": state.speechLanguage || "auto"
+                    },
+                    body: blob
+                }, 3e4, "hearing accuracy retry");
+                const retryText = await retry.text(), retryJson = retryText ? JSON.parse(retryText) : {};
+                if (retry.ok && String(retryJson.text || "").trim()) {
+                    j = retryJson;
+                    brainLog("listen", "weak fast transcript replaced by accuracy retry");
+                }
+            } catch (retryError) {
+                brainLog("listen", "accuracy retry unavailable: " + errorText(retryError, "retry failed"));
+            }
+        }
         if (generation !== listenGeneration) {
             brainLog("listen", "discarded a transcript from an older listening session");
             return;
@@ -14362,6 +14365,7 @@ function bindSettings() {
     state.voice = "";
     if (![ "auto", "balanced", "lean" ].includes(state.performance)) state.performance = "auto";
     if (![ "base", "small" ].includes(state.whisperModel)) state.whisperModel = "base";
+    if (![ "auto", "en", "es" ].includes(state.speechLanguage)) state.speechLanguage = "auto";
     save();
     $("endpoint").value = "/api";
     $("endpoint").readOnly = true;
@@ -14383,6 +14387,26 @@ function bindSettings() {
         state.whisperModel = $("whisperModel").value;
         save();
         brainLog("listen", "Whisper " + state.whisperModel + " selected for the next utterance");
+    };
+    const speechLanguage = $("speechLanguage") || (() => {
+        const whisper = $("whisperModel"), parent = whisper?.parentElement;
+        if (!parent) return null;
+        const label = document.createElement("label");
+        label.textContent = "spoken language";
+        const select = document.createElement("select");
+        select.id = "speechLanguage";
+        select.className = "field";
+        select.innerHTML = '<option value="auto">Auto-detect</option><option value="en">English · faster for short commands</option><option value="es">Spanish · faster for short commands</option>';
+        label.appendChild(select);
+        parent.after(label);
+        return select;
+    })();
+    if (!speechLanguage) return;
+    speechLanguage.value = state.speechLanguage;
+    speechLanguage.onchange = () => {
+        state.speechLanguage = speechLanguage.value;
+        save();
+        brainLog("listen", "speech language " + (state.speechLanguage === "auto" ? "auto-detect" : state.speechLanguage) + " selected for the next utterance");
     };
     $("voiceEngine").value = state.voiceEngine;
     $("voiceEngine").onchange = () => {
@@ -19740,6 +19764,17 @@ systemPrompt = function(conversation) {
     return s.slice(0, 2400) + "\n[older direct context compacted]\n" + s.slice(-(cap - 2400 - contract.length - 34)) + contract;
 };
 
+const _systemPromptStableMovementIds = systemPrompt;
+systemPrompt = function(conversation) {
+    let s = _systemPromptStableMovementIds(conversation);
+    const movementRule = `STABLE MOVEMENT IDs: ${movementCatalog(state.bodyProfile)}. Read the person's request in any language, then choose the matching ID; IDs are the only movement vocabulary sent to the body. A sequence may contain up to four IDs. To invent a reusable movement, use learn:{title,sequence} with two to four existing IDs. Never invent per-step motor values or timing. Use arms only for one-shot target poses and move only for one bounded drive intent; the local controller owns all trajectories and limits.`;
+    if (/Movement library:[\s\S]*?avoid it if recently used\./.test(s)) s = s.replace(/Movement library:[\s\S]*?avoid it if recently used\./, movementRule);
+    else s += "\n" + movementRule;
+    s = s.replace(/\nBODY FLEXIBILITY:[^\n]*/, "");
+    s = s.replace("JSON move, gesture, sequence, body, or arms field", "JSON gesture, sequence, arms, or move field");
+    return s + "\nMOVEMENT SAFETY OVERRIDE: Do not improvise raw motor keyframes. Compose only from the stable IDs above; exact one-shot arm targets may use arms:{left,right}, and a simple bounded drive intent may use move. A learned composition becomes reusable only after its body commands are acknowledged.";
+};
+
 const _pausedChatFence = sendChat;
 
 sendChat = async function() {
@@ -19937,44 +19972,20 @@ const xemoAuthoritativeSchema = {
             }
         },
         gesture: {
-            type: "string"
+            type: "string",
+            enum: movementIds(state.bodyProfile)
         },
         sequence: {
             type: "array",
-            items: { type: "string" },
+            minItems: 2,
+            items: { type: "string", enum: movementPrimitiveIds(state.bodyProfile) },
             maxItems: 4
-        },
-        body: {
-            type: "object",
-            properties: {
-                steps: {
-                    type: "array",
-                    maxItems: 8,
-                    items: {
-                        type: "object",
-                        properties: { l: { type: "number" }, r: { type: "number" }, wl: { type: "number" }, wr: { type: "number" }, ms: { type: "number" } },
-                        additionalProperties: false
-                    }
-                }
-            },
-            additionalProperties: false
         },
         learn: {
             type: "object",
             properties: {
-                name: { type: "string" },
-                steps: {
-                    type: "array",
-                    maxItems: 12,
-                    items: {
-                        type: "object",
-                        properties: {
-                            left: { type: "number" }, right: { type: "number" }, arm: { type: "number" },
-                            armRight: { type: "number" }, armBoth: { type: "boolean" }, ms: { type: "number" }
-                        },
-                        additionalProperties: false
-                    }
-                }
+                title: { type: "string" },
+                sequence: { type: "array", minItems: 2, maxItems: 4, items: { type: "string", enum: movementPrimitiveIds(state.bodyProfile) } }
             },
             additionalProperties: false
         },
@@ -20140,13 +20151,13 @@ function xemoAuthoritativePrivateContext() {
 async function xemoAuthoritativeCall(goal, autonomous = false, externalController = null, callOptions = {}) {
     const controller = externalController || new AbortController, deadline = autonomous ? 150e3 : 9e4, timer = setTimeout((() => controller.abort()), deadline), id = ++xemoAuthoritativeSeq;
     const prompt = String(goal || "").trim();
-    const system = (typeof systemPrompt === "function" ? systemPrompt(!autonomous) : "You are XEMO, a small embodied robot person.") + "\n\nReturn ONLY one compact JSON object. Always include say as one natural sentence. You may also include exactly one concrete goal, activity, gesture, move, look, rest, stop, or complete field. Never return markdown, protocol calls, placeholders, or internal/debug text.\nHUMAN-TURN ANTI-WAIT RULE: When answering a human turn, never say that you are waiting for the person, waiting to be held, waiting for them to wake or return, waiting for instructions, or waiting to know what to do next. Answer the actual newest meaning with one specific sentence; only discuss a deliberate pause if the person explicitly asks about pausing or waking.\nVISION GROUNDING: When a current camera frame is attached, inspect that frame before speaking. First distinguish person/face, named person, ordinary object, multiple objects, and unclear/empty scene. A bottle, walnut, toy, wall, or other object is not a face or person. Never request or invent a person's name when no real face is visible. Only use a known person's name when the current frame actually contains a face and the local identity evidence supports it; otherwise describe the visible object plainly or say you are unsure.\nPERCEPTION EVIDENCE: The private context contains three separate channels: local object labels are coarse continuity hypotheses, face detection is not face recognition, and the acoustic model classifies non-speech episodes such as hums, knocks, voice-like noise, and ambient sound. Treat every confidence, age, and identity status as evidence—not fact. Use `observed` for what the current frame/audio actually supports, `learned` only after repeated or person-confirmed evidence, and `identity_proposal` only as a pending hypothesis. Never turn a provisional object into a named fact, never name a face from appearance alone, and never treat voice-like noise as a transcript." + (autonomous ? "\nThis is your own initiative: choose what you genuinely want to do from current needs, senses, memories, and verified consequences. You may ask one specific useful question, request one concrete thing to see or hear, inspect, experiment, move purposefully, invite your person, express yourself, set a goal, or rest. Never ask what you should do and never offer a menu. If you provide question, it must be a real question you are willing to ask aloud. Do not make waiting for your person, waiting for instructions, waiting for them to wake, or waiting to be held into a goal. If you want quiet closeness, use rest:true without a goal; otherwise choose a small present-tense action, thought, memory, question, or feeling." : "");
+    const system = (typeof systemPrompt === "function" ? systemPrompt(!autonomous) : "You are XEMO, a small embodied robot person.") + "\n\nReturn ONLY one compact JSON object. Always include say as one natural sentence. You may also include one concrete goal, activity, movement ID (`gesture`), bounded ID sequence, validated `learn` composition, one-shot arm target, move intent, look, rest, stop, or complete field. Understand body requests in the person's language but output only the stable IDs provided by the system. Never invent body.steps, learn.steps, servo angles, wheel powers, or per-step timing. Never return markdown, protocol calls, placeholders, or internal/debug text.\nHUMAN-TURN ANTI-WAIT RULE: When answering a human turn, never say that you are waiting for the person, waiting to be held, waiting for them to wake or return, waiting for instructions, or waiting to know what to do next. Answer the actual newest meaning with one specific sentence; only discuss a deliberate pause if the person explicitly asks about pausing or waking.\nVISION GROUNDING: When a current camera frame is attached, inspect that frame before speaking. First distinguish person/face, named person, ordinary object, multiple objects, and unclear/empty scene. A bottle, walnut, toy, wall, or other object is not a face or person. Never request or invent a person's name when no real face is visible. Only use a known person's name when the current frame actually contains a face and the local identity evidence supports it; otherwise describe the visible object plainly or say you are unsure.\nPERCEPTION EVIDENCE: The private context contains three separate channels: local object labels are coarse continuity hypotheses, face detection is not face recognition, and the acoustic model classifies non-speech episodes such as hums, knocks, voice-like noise, and ambient sound. Treat every confidence, age, and identity status as evidence—not fact. Use `observed` for what the current frame/audio actually supports, `learned` only after repeated or person-confirmed evidence, and `identity_proposal` only as a pending hypothesis. Never turn a provisional object into a named fact, never name a face from appearance alone, and never treat voice-like noise as a transcript." + (autonomous ? "\nThis is your own initiative: choose what you genuinely want to do from current needs, senses, memories, and verified consequences. You may ask one specific useful question, request one concrete thing to see or hear, inspect, experiment, move purposefully, invite your person, express yourself, set a goal, or rest. Never ask what you should do and never offer a menu. If you provide question, it must be a real question you are willing to ask aloud. Do not make waiting for your person, waiting for instructions, waiting for them to wake, or waiting to be held into a goal. If you want quiet closeness, use rest:true without a goal; otherwise choose a small present-tense action, thought, memory, question, or feeling." : "");
     const autonomySpeechRule = autonomous ? "For autonomous thoughts, say may be an empty string when silence is the honest choice; otherwise use one short natural sentence." : "For a human turn, include one short natural sentence in say.";
     const privateContext = callOptions.skipPrivateContext ? "" : xemoAuthoritativePrivateContext();
     const intentPrompt = String(callOptions.originalPrompt || prompt);
     const visualRequest = /\b(?:look|see|show|watch|camera|what(?:'s| is) (?:this|that|there)|describe|inspect|object|bottle|walnut|face|person|name)\b/i.test(intentPrompt);
     const intentRule = visualRequest ? "" : "\nRELEVANCE RULE: The human did not ask about sight, camera, objects, or sensors. Do not mention a camera, live view, seeing, vision, or unavailable hardware; answer the human's actual words or describe one present feeling without changing the topic.";
-    const effectiveSystem = system + intentRule;
+    const effectiveSystem = system.replace("Never invent body.steps, learn.steps, servo angles, wheel powers, or per-step timing.", "Never invent per-step motor coordinates or timing; one-shot arms targets and a bounded move intent are allowed.") + intentRule;
     const systemForTurn = effectiveSystem.replace("Always include say as one natural sentence.", autonomySpeechRule);
     const systemWithReflection = systemForTurn + (autonomous ? " Private reflection is allowed: use reflection for one brief internal observation or lesson worth carrying forward; it is not spoken unless you also choose say. Keep it grounded and do not use technical language." : "");
     const attachFrame = !!camStream && (autonomous || visualRequest) ? captureVisionFrame() : null;

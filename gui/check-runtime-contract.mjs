@@ -41,7 +41,7 @@ if (!/goal\.predictionConsistency = row\.consistency/.test(app) || !/goal\.predi
 if (!/meta\.status\[mk\] = "consolidated"/.test(app) || !/meta\.confidence\[mk\] = Math\.max/.test(app)) failures.push("dream consolidation does not calibrate admitted memory");
 if (!/prediction consistency=\$\{g\.predictionConsistency/.test(app) || !/change the method, inspect, ask my person/.test(app)) failures.push("adaptive goals do not expose calibrated action history");
 if (!/markBodyCommandInconclusive/.test(app) || !/body did not acknowledge the arm command/.test(app)) failures.push("arm learning can start before body acknowledgement");
-if (!/opts\.ackState\.received < opts\.ackState\.expected/.test(app) || !/gesture-/.test(app)) failures.push("compound arm gestures do not gate learning on acknowledgements");
+if (!/opts\.ackState\.received < opts\.ackState\.expected/.test(app) || !/function runLibraryMovement\(name, autonomous = false\)/.test(app)) failures.push("library gestures do not gate learning on acknowledgements");
 if (!/const rid = "wheel-/.test(app) || !/bodyLearn\(label, before, ms \+ 220, \{ ackState \}\)/.test(app)) failures.push("finite wheel learning is not gated on a wheel acknowledgement");
 if (!/inconclusive: !!x\.inconclusive/.test(app) || !/evidenceQuality: Math\.max\(0, Math\.min\(3, \+x\.evidenceQuality \|\| 0\)\)/.test(app)) failures.push("body experiment provenance is lost during state normalization");
 if (!/acknowledged: x\.acknowledged == null \? null : !!x\.acknowledged/.test(app) || !/acknowledged: opts\.ackState \? !opts\.ackState\.failed/.test(app)) failures.push("body experiment provenance does not retain transport acknowledgement");
@@ -208,7 +208,7 @@ if (!/function bodyWheelsActive\(\)/.test(app) || !/function registerMotionImpac
 if (!/function startBodyRecoveryTurn\(reason\)/.test(app) || !/bounded turn/.test(app) || !/open side/.test(app) || !/VISION APPRAISAL AFTER CONTACT/.test(app) || !/Do not keep facing or repeating the same wall\/obstacle/.test(app)) failures.push("a collision stop does not perform a bounded escape turn and brain replan");
 if (!/Date\.now\(\) - lastStreamRange > 420/.test(app) || !/send\(\{ t: "range" \}\)/.test(app)) failures.push("library wheel movement does not keep refreshing proximity evidence");
 if (!/if \(!state\.personaV3\) \{[\s\S]*?if \(!String\(state\.personality \|\| ""\)\.trim\(\)\) state\.personality = defaults\.personality;[\s\S]*?if \(!String\(state\.instructions \|\| ""\)\.trim\(\)\) state\.instructions = defaults\.instructions;/.test(app)) failures.push("persona migration can overwrite an existing identity");
-if (!/protocol\.js\?v=109/.test(app) || !/protocol\.js\?v=109/.test(sw)) failures.push("the repaired thought parser is not cache-busted");
+if (!/protocol\.js\?v=114/.test(app) || !/protocol\.js\?v=114/.test(sw)) failures.push("the repaired thought parser is not cache-busted");
 if (!/export function firstBalancedJson/.test(protocol) || !/firstBalancedJson\(raw\)/.test(app)) failures.push("vision, dream, or care JSON still uses greedy parsing");
 if (!/bm_fable/.test(app)) failures.push("the default Kokoro voice is not B-Fable");
 if (!/preservesPitch\s*=\s*false/.test(app)) failures.push("voice pitch is not controlled by the audio path");
